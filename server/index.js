@@ -1,18 +1,56 @@
-// server.js
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const cors = require("cors");
+const morgan = require("morgan");
+const winston = require("winston");
 
 const app = express();
 const port = process.env.PORT || 3001;
 app.use(cors());
+
+// ---------------------
+// Configure Winston Logger
+// ---------------------
+const logger = winston.createLogger({
+  level: "info",
+  format: winston.format.combine(
+    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+    winston.format.printf(({ timestamp, level, message }) => {
+      return `${timestamp} [${level.toUpperCase()}]: ${message}`;
+    })
+  ),
+  transports: [
+    new winston.transports.Console(), // Logs to console
+    new winston.transports.File({ filename: "logs/server.log" }), // Logs to a file
+  ],
+});
+
 // ---------------------
 // Middleware Setup
 // ---------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ---------------------
+// Create logs directory if it doesn't exist
+// ---------------------
+const LOGS_FOLDER = path.join(__dirname, "logs");
+if (!fs.existsSync(LOGS_FOLDER)) {
+  fs.mkdirSync(LOGS_FOLDER);
+}
+
+// ---------------------
+// Configure Morgan for HTTP Request Logging
+// ---------------------
+app.use(
+  morgan("combined", {
+    stream: {
+      write: (message) => logger.info(message.trim()), // Integrate with winston
+    },
+  })
+);
 
 // ---------------------
 // Set Up Folders for File Storage
@@ -27,7 +65,6 @@ if (!fs.existsSync(UPLOADS_FOLDER)) {
 // ---------------------
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Optionally check file.mimetype to determine the destination folder.
     cb(null, UPLOADS_FOLDER);
   },
   filename: function (req, file, cb) {
@@ -45,6 +82,7 @@ const upload = multer({ storage });
 app.get("/api/files", (req, res) => {
   fs.readdir(UPLOADS_FOLDER, (err, files) => {
     if (err) {
+      logger.error("Could not list files: " + err.message);
       return res.status(500).json({ error: "Could not list files" });
     }
     const fileData = files.map((file) => {
@@ -52,13 +90,14 @@ app.get("/api/files", (req, res) => {
       const stats = fs.statSync(filePath);
       return { filename: file, created: stats.birthtime };
     });
+    logger.info("Files listed successfully");
     res.json(fileData);
   });
 });
 
-// POST /api/upload - Upload files (field name should be "files")
-app.post("/api/upload", upload.array("files", 10), (req, res) => {
-  // req.files contains an array of file objects
+// POST /api/upload - Upload files
+app.post("/api/upload", upload.array("files", 50), (req, res) => {
+  logger.info(`${req.files.length} file(s) uploaded successfully`);
   res.json({ message: "Files uploaded successfully", files: req.files });
 });
 
@@ -68,7 +107,10 @@ app.get("/api/files/:filename/download", (req, res) => {
   const filePath = path.join(UPLOADS_FOLDER, filename);
   res.download(filePath, filename, (err) => {
     if (err) {
+      logger.error(`Error downloading file: ${filename}`);
       res.status(500).json({ error: "Error in downloading the file." });
+    } else {
+      logger.info(`File downloaded: ${filename}`);
     }
   });
 });
@@ -77,11 +119,18 @@ app.get("/api/files/:filename/download", (req, res) => {
 app.put("/api/files/:filename/rename", (req, res) => {
   const { filename } = req.params;
   const { newName } = req.body;
-  if (!newName) return res.status(400).json({ error: "New name not provided" });
+  if (!newName) {
+    logger.warn("New name not provided for file rename");
+    return res.status(400).json({ error: "New name not provided" });
+  }
   const oldPath = path.join(UPLOADS_FOLDER, filename);
   const newPath = path.join(UPLOADS_FOLDER, newName);
   fs.rename(oldPath, newPath, (err) => {
-    if (err) return res.status(500).json({ error: "Could not rename file" });
+    if (err) {
+      logger.error(`Could not rename file: ${filename}`);
+      return res.status(500).json({ error: "Could not rename file" });
+    }
+    logger.info(`File renamed from ${filename} to ${newName}`);
     res.json({
       message: "File renamed successfully",
       oldName: filename,
@@ -95,18 +144,22 @@ app.delete("/api/files/:filename", (req, res) => {
   const { filename } = req.params;
   const filePath = path.join(UPLOADS_FOLDER, filename);
   fs.unlink(filePath, (err) => {
-    if (err) return res.status(500).json({ error: "Could not delete file" });
+    if (err) {
+      logger.error(`Could not delete file: ${filename}`);
+      return res.status(500).json({ error: "Could not delete file" });
+    }
+    logger.info(`File deleted: ${filename}`);
     res.json({ message: "File deleted successfully" });
   });
 });
 
-// GET /api/images - List all images in the images folder
+// GET /api/images - List all images
 app.get("/api/images", (req, res) => {
   fs.readdir(UPLOADS_FOLDER, (err, files) => {
     if (err) {
+      logger.error("Could not list images: " + err.message);
       return res.status(500).json({ error: "Could not list images" });
     }
-    // Filter for common image file extensions
     const imageFiles = files.filter((file) => {
       const ext = path.extname(file).toLowerCase();
       return [".jpg", ".jpeg", ".png", ".gif"].includes(ext);
@@ -116,23 +169,19 @@ app.get("/api/images", (req, res) => {
       const stats = fs.statSync(filePath);
       return { filename: file, created: stats.birthtime };
     });
+    logger.info("Images listed successfully");
     res.json(imageData);
   });
 });
 
 // ---------------------
-// Serve Static Files for the React App
+// Serve Static Files for React App
 // ---------------------
-// In production, after you run "npm run build" (if using Create React App),
-// the React build files will be in the "build" directory.
 app.use(express.static(path.join(__dirname, "build")));
-
-// Serve uploaded files and images as static assets.
 app.use("/uploads", express.static(UPLOADS_FOLDER));
 app.use("/images", express.static(UPLOADS_FOLDER));
 
-// Fallback route: For any request that doesn’t match an API route,
-// serve the React index.html file (allowing client–side routing to take over).
+// Fallback route for React
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "build", "index.html"));
 });
@@ -141,5 +190,5 @@ app.get("*", (req, res) => {
 // Start the Server
 // ---------------------
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  logger.info(`Server is running on port ${port}`);
 });

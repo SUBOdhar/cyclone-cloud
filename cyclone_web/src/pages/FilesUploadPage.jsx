@@ -124,13 +124,11 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
   };
 
   const deleteFile = async (filename) => {
-    if (!window.confirm("Are you sure you want to delete this file?")) return;
     try {
       const res = await fetch(`http://localhost:3001/api/files/${filename}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Delete failed");
-      alert("File deleted successfully!");
       fetchFiles();
     } catch (error) {
       console.error(error);
@@ -176,13 +174,18 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
   const toggleViewMode = () => {
     setViewMode((prev) => (prev === "grid" ? "list" : "grid"));
   };
-  const truncateFileName = (filename, maxLength = 20) => {
+  const truncateFileName = (filename) => {
+    // Set maxLength based on the current viewMode (grid or list)
+    const maxLength = viewMode === "grid" ? 15 : 20;
+
     if (filename.length <= maxLength) return filename;
+
     const extension = filename.split(".").pop();
     const nameWithoutExtension = filename.slice(
       0,
       filename.length - extension.length - 1
     );
+
     return `${nameWithoutExtension.slice(
       0,
       maxLength - extension.length - 4
@@ -230,17 +233,13 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
           filteredFiles.map((file) => (
             <div
               key={file.filename}
-              className={`bg-white dark:bg-gray-700 rounded-2xl shadow-lg p-4 flex ${
-                viewMode === "grid"
-                  ? "flex-col justify-between"
-                  : "flex-row items-center justify-between "
-              } transition-transform transform hover:scale-101 hover:shadow-2xl `}
+              className={`bg-white dark:bg-gray-700 rounded-2xl shadow-lg p-4 flex flex-row items-center justify-between  transition-transform transform hover:scale-101 hover:shadow-2xl `}
             >
               <div
-                className={`flex ${
+                className={`flex flex-row gap-2 ${
                   viewMode === "grid"
-                    ? "flex-col items-center"
-                    : "flex-row items-center space-x-4"
+                    ? " items-center"
+                    : " items-center space-x-4"
                 } mb-4`}
               >
                 {getFileIcon(file.filename)}
