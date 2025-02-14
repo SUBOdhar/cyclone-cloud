@@ -15,18 +15,18 @@ import {
 } from "lucide-react";
 
 const FilesUploadPage = ({ theme, toggleTheme }) => {
-  // State for files from the API
+  // State variables
   const [files, setFiles] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  // New state for toggling view mode: "grid" or "list"
   const [viewMode, setViewMode] = useState("grid");
   const fileInputRef = useRef(null);
+  const url = import.meta.env.VITE_url || "";
 
-  // Fetch files from the Node API
+  // Fetch files from the API
   const fetchFiles = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:3001/api/files");
+      const res = await fetch(`${url}/api/files`);
       if (!res.ok) throw new Error("Failed to fetch files");
       const data = await res.json();
       setFiles(data);
@@ -34,7 +34,7 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
       console.error(error);
       alert("Error fetching files");
     }
-  }, []);
+  }, [url]);
 
   useEffect(() => {
     fetchFiles();
@@ -44,11 +44,9 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
   const handleFilesUpload = async (uploadedFiles) => {
     if (!uploadedFiles || uploadedFiles.length === 0) return;
     const formData = new FormData();
-    Array.from(uploadedFiles).forEach((file) => {
-      formData.append("files", file);
-    });
+    Array.from(uploadedFiles).forEach((file) => formData.append("files", file));
     try {
-      const res = await fetch("http://localhost:3001/api/upload", {
+      const res = await fetch(`${url}/api/upload`, {
         method: "POST",
         body: formData,
       });
@@ -93,27 +91,19 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
     }
   };
 
-  // File Actions using the API
+  // File Actions
   const downloadFile = (filename) => {
-    // Open the download URL in a new tab/window
-    window.open(
-      `http://localhost:3001/api/files/${filename}/download`,
-      "_blank"
-    );
+    window.open(`${url}/api/files/${filename}/download`, "_blank");
   };
-
   const renameFile = async (filename) => {
     const newName = window.prompt("Enter new file name:", filename);
     if (!newName || newName.trim() === "" || newName === filename) return;
     try {
-      const res = await fetch(
-        `http://localhost:3001/api/files/${filename}/rename`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newName }),
-        }
-      );
+      const res = await fetch(`${url}/api/files/${filename}/rename`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newName }),
+      });
       if (!res.ok) throw new Error("Rename failed");
       alert("File renamed successfully!");
       fetchFiles();
@@ -122,10 +112,9 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
       alert("Error renaming file");
     }
   };
-
   const deleteFile = async (filename) => {
     try {
-      const res = await fetch(`http://localhost:3001/api/files/${filename}`, {
+      const res = await fetch(`${url}/api/files/${filename}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Delete failed");
@@ -136,56 +125,69 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
     }
   };
 
+  // Define vw-based sizes (tweak these values as needed)
+  const iconSize = viewMode === "grid" ? "4vw" : "4vw"; // for file icons
+  const buttonIconSize = viewMode === "grid" ? "2vw" : "2vw"; // for action buttons
+  const textSize = viewMode === "grid" ? "1.3vw" : "1.3vw"; // for file name text
+  const cardPadding = viewMode === "grid" ? "1vw" : "1vw"; // inner padding for cards
+  const cardMargin = viewMode === "grid" ? "0.2vw" : "0.3vw";
+  // Consolidated style objects
+  const containerStyle = { padding: "2vw" };
+  const gridContainerStyle = {
+    padding: "1vw",
+    maxHeight: "calc(100vh - 10vw)",
+    overflowY: "auto",
+  };
+  const dragOverlayStyle = { fontSize: "2vw" };
+
   // Helper: Return an icon based on file extension
   const getFileIcon = (filename) => {
     const extension = filename.split(".").pop().toLowerCase();
+    const style = { width: iconSize, height: iconSize };
     switch (extension) {
       case "jpg":
       case "jpeg":
       case "png":
       case "gif":
-        return <ImageIcon className="w-12 h-12 text-blue-500" />;
+        return <ImageIcon style={style} className="text-blue-500" />;
       case "pdf":
-        return <FileText className="w-12 h-12 text-red-500" />;
+        return <FileText style={style} className="text-red-500" />;
       case "doc":
       case "docx":
-        return <FileText className="w-12 h-12 text-green-500" />;
+        return <FileText style={style} className="text-green-500" />;
       case "xls":
       case "xlsx":
-        return <FileText className="w-12 h-12 text-green-700" />;
+        return <FileText style={style} className="text-green-700" />;
       case "ppt":
       case "pptx":
-        return <FileText className="w-12 h-12 text-orange-500" />;
+        return <FileText style={style} className="text-orange-500" />;
       case "txt":
-        return <FileText className="w-12 h-12 text-gray-500" />;
+        return <FileText style={style} className="text-gray-500" />;
       default:
-        return <FileText className="w-12 h-12 text-blue-500" />;
+        return <FileText style={style} className="text-blue-500" />;
     }
   };
 
-  // Memoize filtered files based on the search query
-  const filteredFiles = useMemo(() => {
-    return files.filter((file) =>
-      file.filename.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [files, searchQuery]);
+  // Filter files by search query
+  const filteredFiles = useMemo(
+    () =>
+      files.filter((file) =>
+        file.filename.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [files, searchQuery]
+  );
 
-  // Toggle between grid and list view modes
-  const toggleViewMode = () => {
+  const toggleViewMode = () =>
     setViewMode((prev) => (prev === "grid" ? "list" : "grid"));
-  };
+
   const truncateFileName = (filename) => {
-    // Set maxLength based on the current viewMode (grid or list)
     const maxLength = viewMode === "grid" ? 15 : 20;
-
     if (filename.length <= maxLength) return filename;
-
     const extension = filename.split(".").pop();
     const nameWithoutExtension = filename.slice(
       0,
       filename.length - extension.length - 1
     );
-
     return `${nameWithoutExtension.slice(
       0,
       maxLength - extension.length - 4
@@ -193,8 +195,10 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
   };
 
   return (
-    <div className="p-6 flex-1 flex flex-col overflow-y-auto">
-      {/* Topbar plus a toggle button for view mode */}
+    <div
+      style={containerStyle}
+      className="flex-1 flex flex-col overflow-y-auto"
+    >
       <Topbar
         pageTitle="Files"
         searchQuery={searchQuery}
@@ -210,21 +214,23 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
         showGridAction={true}
         viewMode={viewMode}
       />
-
       <div
-        className={`relative flex-1 border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${
+        style={gridContainerStyle}
+        className={`relative flex-1 border border-gray-200 dark:border-gray-700 rounded-lg ${
           viewMode === "grid"
-            ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"
-            : "flex flex-col space-y-4 lg:space-y-6"
+            ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"
+            : "flex flex-col space-y-2"
         }`}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }} // Make it scrollable
       >
         {filteredFiles.length === 0 ? (
-          <div className="text-center text-gray-500 dark:text-gray-400">
+          <div
+            className="text-center text-gray-500 dark:text-gray-400"
+            style={{ fontSize: textSize }}
+          >
             {searchQuery
               ? "No files match your search."
               : "No files uploaded yet."}
@@ -233,41 +239,48 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
           filteredFiles.map((file) => (
             <div
               key={file.filename}
-              className={`bg-white dark:bg-gray-700 rounded-2xl shadow-lg p-4 flex flex-row items-center justify-between  transition-transform transform hover:scale-101 hover:shadow-2xl `}
+              style={{ padding: cardPadding, margin: cardMargin }}
+              className="bg-white dark:bg-gray-700 rounded-2xl shadow-lg flex flex-col sm:flex-row items-center justify-between transition-transform transform hover:scale-102 hover:shadow-sky-500/30"
             >
               <div
-                className={`flex flex-row gap-2 ${
-                  viewMode === "grid"
-                    ? " items-center"
-                    : " items-center space-x-4"
-                } mb-4`}
+                className="flex flex-col sm:flex-row items-center gap-1"
+                style={{ margin: "0.5vw" }}
               >
                 {getFileIcon(file.filename)}
-                <span className="text-xl font-semibold text-gray-900 dark:text-white break-all">
+                <span
+                  className="font-semibold text-gray-900 dark:text-white break-all text-center sm:text-left"
+                  style={{ fontSize: textSize }}
+                >
                   {truncateFileName(file.filename)}
                 </span>
               </div>
-              <div className="flex justify-end space-x-3">
+              <div className="flex justify-end gap-1">
                 <button
                   onClick={() => downloadFile(file.filename)}
                   className="text-green-500 hover:text-green-700"
                   title="Download"
                 >
-                  <Download className="w-6 h-6" />
+                  <Download
+                    style={{ width: buttonIconSize, height: buttonIconSize }}
+                  />
                 </button>
                 <button
                   onClick={() => renameFile(file.filename)}
                   className="text-gray-500 hover:text-white"
                   title="Rename"
                 >
-                  <Edit2 className="w-6 h-6" />
+                  <Edit2
+                    style={{ width: buttonIconSize, height: buttonIconSize }}
+                  />
                 </button>
                 <button
                   onClick={() => deleteFile(file.filename)}
                   className="text-red-500 hover:text-red-700"
                   title="Delete"
                 >
-                  <Trash2 className="w-6 h-6" />
+                  <Trash2
+                    style={{ width: buttonIconSize, height: buttonIconSize }}
+                  />
                 </button>
               </div>
             </div>
@@ -275,7 +288,10 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
         )}
         {dragActive && (
           <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center rounded-lg pointer-events-none">
-            <span className="text-2xl text-blue-700 font-semibold">
+            <span
+              style={dragOverlayStyle}
+              className="text-blue-700 font-semibold"
+            >
               Drop files to upload
             </span>
           </div>

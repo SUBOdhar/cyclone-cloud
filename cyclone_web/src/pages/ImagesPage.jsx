@@ -24,12 +24,13 @@ const ImagesPage = ({ theme, toggleTheme }) => {
   const [zoom, setZoom] = useState(1);
   const [loading, setLoading] = useState(false);
   const dummyRef = useRef(null);
+  const url = import.meta.env.VITE_url || "";
 
   // Fetch images from the API
   const fetchImages = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:3001/api/images");
+      const res = await fetch(`${url}/api/images`);
       if (!res.ok) throw new Error("Failed to fetch images");
       const data = await res.json();
       setImages(data);
@@ -193,7 +194,7 @@ const ImagesPage = ({ theme, toggleTheme }) => {
             >
               <div className="w-24 h-24 overflow-hidden rounded-lg mb-2">
                 <img
-                  src={`http://localhost:3001/images/${image.filename}`}
+                  src={`${url}/images/${image.filename}`}
                   alt={image.filename}
                   className="w-full h-full object-cover"
                   loading="lazy"
@@ -300,7 +301,7 @@ const ImagesPage = ({ theme, toggleTheme }) => {
                 style={{ ...transformStyle }}
               >
                 <img
-                  src={`http://localhost:3001/images/${currentImage.filename}`}
+                  src={`${url}/images/${currentImage.filename}`}
                   alt={currentImage.filename}
                   className="max-w-full object-contain mx-auto"
                   style={{ maxHeight: "80vh" }}

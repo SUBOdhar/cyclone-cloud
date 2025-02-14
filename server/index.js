@@ -78,6 +78,9 @@ const upload = multer({ storage });
 // API Endpoints
 // ---------------------
 
+//Serve the static React build file for the final build
+app.use("/", express.static("dist"));
+
 // GET /api/files - List all uploaded files
 app.get("/api/files", (req, res) => {
   fs.readdir(UPLOADS_FOLDER, (err, files) => {

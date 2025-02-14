@@ -1,6 +1,19 @@
 @echo off
-REM Open first Command Prompt window for the server
-start cmd /k "cd /d C:\Users\aryal\source\codes\fireo\server && node index.js"
+:: Check for admin rights
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    echo Requesting admin access...
+    powershell -Command "Start-Process cmd -ArgumentList '/c cd /d %CD% && %~s0' -Verb RunAs"
+    exit /b
+)
 
-REM Open second Command Prompt window for cyclone_web
-start cmd /k "cd /d C:\Users\aryal\source\codes\fireo\cyclone_web && npm run dev"
+:: Now running as admin, ensure we are in the correct directory
+cd /d %~dp0
+
+:: Run build.cmd
+call build.cmd
+
+:: Navigate to the server directory and run commands
+cd server
+call npm install
+node index.js
