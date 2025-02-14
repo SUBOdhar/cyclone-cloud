@@ -1,6 +1,6 @@
 # Cyclone Cloud
 
-### A cloud storage solution based on javascrit frameworks (Node js,React js)
+### A cloud storage solution based on javascrit frameworks (Node js,React js)(currently the build script is supported for windows only)
 
 ##
 
@@ -20,7 +20,7 @@ cd cyclone-cloud
 
 ##
 
-### Run the server by this script in command prompt in widows
+### Run the server by this script in command prompt in windows
 
 ```shell
 runner.bat
