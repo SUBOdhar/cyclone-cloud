@@ -1,35 +1,78 @@
-# Cyclone Cloud
 
-### A cloud storage solution based on javascrit frameworks (Node js,React js)(currently the build script is supported for windows only)
+# Cyclone Cloud Documentation
 
-##
+**Cyclone Cloud** is an open-source cloud storage solution built using JavaScript frameworks, Node.js, and React.js. It is currently supported for Windows, with an alternative build method for Linux-based systems.
 
-### Clone the repositery
+## Table of Contents
+- [Clone the Repository](#clone-the-repository)
+- [For Windows](#for-windows)
+- [For Linux](#for-linux)
+
+## Clone the Repository
+
+To get started, clone the Cyclone Cloud repository using the following command:
 
 ```shell
 git clone https://github.com/SUBOdhar/cyclone-cloud.git
 ```
 
-##
-
-### Then go to the directory
+Navigate to the project directory:
 
 ```shell
 cd cyclone-cloud
 ```
 
-##
+## For Windows
 
-### Run the server by this script in command prompt in windows
+For Windows users, you can use the provided batch script to run the server.
 
-```shell
-runner.bat
-```
+1. Execute the following command in the command prompt:
 
-##
+    ```shell
+    runner.bat
+    ```
 
-### Then it will build the necessary dependency and start the server and view the page at
+2. This will build the necessary dependencies and start the server.
 
-```
-http://localhost:3001
-```
+3. Once the build is complete, open your browser and navigate to:
+
+    ```
+    http://localhost:3001
+    ```
+
+## For Linux
+
+For Linux-based systems, follow these steps to build and run the server:
+
+1. Install the necessary dependencies for the frontend:
+
+    ```shell
+    npm i
+    npm run build
+    ```
+
+2. Move the built frontend files to the server directory:
+
+    ```shell
+    cd ..
+    mv /cyclone_web/dist /server/
+    ```
+
+3. Navigate to the server directory and install the backend dependencies:
+
+    ```shell
+    cd server
+    npm i
+    ```
+
+4. Finally, start the server:
+
+    ```shell
+    node index.js
+    ```
+
+5. Open your browser and go to:
+
+    ```
+    http://localhost:3001
+    ```
