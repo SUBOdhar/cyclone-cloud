@@ -5,8 +5,8 @@
 
 ## Table of Contents
 - [Clone the Repository](#clone-the-repository)
-- [For Windows](#for-windows)
-- [For Linux](#for-linux)
+- [Windows Installation](#for-windows)
+- [Linux Installation](#for-linux)
 
 ## Clone the Repository
 
