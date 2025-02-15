@@ -80,4 +80,15 @@ For Linux-based systems, follow these steps to build and run the server:
 
 ## Contribution 
 
-Feel free to contribute in the project by adding new features and sustain the project ever long
+We welcome contributions! Feel free to enhance Cyclone Cloud by adding new features, improving performance, or fixing issues. Your support helps sustain the project for the long run.
+
+🔹 How to Contribute
+
+- Fork the repository
+
+- Make your changes
+
+- Submit a pull request
+
+
+Join us in building a powerful, open-source cloud storage solution!
