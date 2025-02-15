@@ -7,7 +7,7 @@
 - [Clone the Repository](#clone-the-repository)
 - [Windows Installation](#for-windows)
 - [Linux Installation](#for-linux)
-- [Contribution] (#contribution)
+- [Contribution](#contribution)
 
 ## Clone the Repository
 
