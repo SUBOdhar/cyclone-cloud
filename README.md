@@ -7,6 +7,7 @@
 - [Clone the Repository](#clone-the-repository)
 - [Windows Installation](#for-windows)
 - [Linux Installation](#for-linux)
+- [Contribution] (#contribution)
 
 ## Clone the Repository
 
@@ -76,3 +77,7 @@ For Linux-based systems, follow these steps to build and run the server:
     ```
     http://localhost:3001
     ```
+
+## Contribution 
+
+Feel free to contribute in the project by adding new features and sustain the project ever long
