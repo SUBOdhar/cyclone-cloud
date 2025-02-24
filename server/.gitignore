@@ -13,6 +13,8 @@ dist-ssr
 *.local
 uploads
 dist
+grouped_faces
+filedb.sqlite
 
 # Editor directories and files
 .vscode/*

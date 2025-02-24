@@ -6,22 +6,36 @@ import React, {
   useCallback,
 } from "react";
 import Topbar from "../components/Topbar";
+import AlertDialog from "../components/AlertDialog"; // Our custom AlertDialog component
 import {
   FileText,
   Download,
   Edit2,
   Trash2,
   Image as ImageIcon,
+  Share2,
 } from "lucide-react";
 
 const FilesUploadPage = ({ theme, toggleTheme }) => {
   // State variables
   const [files, setFiles] = useState([]);
+  const [uploading, setUpload] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState("grid");
+  const [alertConfig, setAlertConfig] = useState({
+    open: false,
+    title: "",
+    body: "",
+    onOk: null,
+  });
   const fileInputRef = useRef(null);
   const url = import.meta.env.VITE_url || "";
+
+  // Helper to show the custom alert dialog
+  const showAlert = (body, title = "Alert", onOk = null) => {
+    setAlertConfig({ open: true, title, body, onOk });
+  };
 
   // Fetch files from the API
   const fetchFiles = useCallback(async () => {
@@ -29,10 +43,11 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
       const res = await fetch(`${url}/api/files`);
       if (!res.ok) throw new Error("Failed to fetch files");
       const data = await res.json();
+      console.log(data);
       setFiles(data);
     } catch (error) {
       console.error(error);
-      alert("Error fetching files");
+      showAlert("Error fetching files");
     }
   }, [url]);
 
@@ -42,6 +57,7 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
 
   // Upload files to the API
   const handleFilesUpload = async (uploadedFiles) => {
+    setUpload(true);
     if (!uploadedFiles || uploadedFiles.length === 0) return;
     const formData = new FormData();
     Array.from(uploadedFiles).forEach((file) => formData.append("files", file));
@@ -52,12 +68,13 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
       });
       if (!res.ok) throw new Error("File upload failed");
       const data = await res.json();
-      alert(`${data.files.length} file(s) uploaded successfully!`);
+      showAlert(`${data.files.length} file(s) uploaded successfully!`);
       fetchFiles();
     } catch (error) {
       console.error(error);
-      alert("Error uploading files");
+      showAlert("Error uploading files");
     }
+    setUpload(false);
   };
 
   const handleFileChange = (event) => {
@@ -95,6 +112,7 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
   const downloadFile = (filename) => {
     window.open(`${url}/api/files/${filename}/download`, "_blank");
   };
+
   const renameFile = async (filename) => {
     const newName = window.prompt("Enter new file name:", filename);
     if (!newName || newName.trim() === "" || newName === filename) return;
@@ -105,13 +123,32 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
         body: JSON.stringify({ newName }),
       });
       if (!res.ok) throw new Error("Rename failed");
-      alert("File renamed successfully!");
+      showAlert("File renamed successfully!");
       fetchFiles();
     } catch (error) {
       console.error(error);
-      alert("Error renaming file");
+      showAlert("Error renaming file");
     }
   };
+
+  const shareFile = async (fileId) => {
+    try {
+      const res = await fetch(`${url}/gsl`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ fileId }),
+      });
+      const data = await res.json();
+      navigator.clipboard.writeText(data.shareableLink);
+      showAlert("Share URL copied to clipboard!");
+    } catch (error) {
+      console.error("Error sharing file:", error);
+      showAlert("Error sharing file");
+    }
+  };
+
   const deleteFile = async (filename) => {
     try {
       const res = await fetch(`${url}/api/files/${filename}`, {
@@ -121,7 +158,7 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
       fetchFiles();
     } catch (error) {
       console.error(error);
-      alert("Error deleting file");
+      showAlert("Error deleting file");
     }
   };
 
@@ -131,6 +168,7 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
   const textSize = viewMode === "grid" ? "1.3vw" : "1.3vw"; // for file name text
   const cardPadding = viewMode === "grid" ? "1vw" : "1vw"; // inner padding for cards
   const cardMargin = viewMode === "grid" ? "0.2vw" : "0.3vw";
+
   // Consolidated style objects
   const containerStyle = { padding: "2vw" };
   const gridContainerStyle = {
@@ -207,6 +245,7 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
         createNewFile={() => {}}
         toggleTheme={toggleTheme}
         theme={theme}
+        uploading={uploading}
         handleFileChange={handleFileChange}
         showSearch={true}
         showUploadActions={true}
@@ -238,7 +277,7 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
         ) : (
           filteredFiles.map((file) => (
             <div
-              key={file.filename}
+              key={file.id}
               style={{ padding: cardPadding, margin: cardMargin }}
               className="bg-white dark:bg-gray-700 rounded-2xl shadow-lg flex flex-col sm:flex-row items-center justify-between transition-transform transform hover:scale-102 hover:shadow-sky-500/30"
             >
@@ -261,7 +300,22 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
                   title="Download"
                 >
                   <Download
-                    style={{ width: buttonIconSize, height: buttonIconSize }}
+                    style={{
+                      width: buttonIconSize,
+                      height: buttonIconSize,
+                    }}
+                  />
+                </button>
+                <button
+                  onClick={() => shareFile(file.id)}
+                  className="text-sky-500 hover:text-sky-700"
+                  title="Share"
+                >
+                  <Share2
+                    style={{
+                      width: buttonIconSize,
+                      height: buttonIconSize,
+                    }}
                   />
                 </button>
                 <button
@@ -270,16 +324,22 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
                   title="Rename"
                 >
                   <Edit2
-                    style={{ width: buttonIconSize, height: buttonIconSize }}
+                    style={{
+                      width: buttonIconSize,
+                      height: buttonIconSize,
+                    }}
                   />
                 </button>
                 <button
-                  onClick={() => deleteFile(file.filename)}
+                  onClick={() => deleteFile(file.id)}
                   className="text-red-500 hover:text-red-700"
                   title="Delete"
                 >
                   <Trash2
-                    style={{ width: buttonIconSize, height: buttonIconSize }}
+                    style={{
+                      width: buttonIconSize,
+                      height: buttonIconSize,
+                    }}
                   />
                 </button>
               </div>
@@ -297,6 +357,18 @@ const FilesUploadPage = ({ theme, toggleTheme }) => {
           </div>
         )}
       </div>
+      {/* Conditionally render the AlertDialog */}
+      {alertConfig.open && (
+        <AlertDialog
+          title={alertConfig.title}
+          body={alertConfig.body}
+          onOk={() => {
+            setAlertConfig({ ...alertConfig, open: false });
+            if (alertConfig.onOk) alertConfig.onOk();
+          }}
+          onCancel={() => setAlertConfig({ ...alertConfig, open: false })}
+        />
+      )}
     </div>
   );
 };

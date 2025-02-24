@@ -1,0 +1,23 @@
+# Ignore node_modules (to avoid copying dependencies)
+node_modules
+
+# Ignore logs
+logs
+*.log
+uploads
+
+# Ignore environment files (sensitive data)
+.env
+.env.local
+
+
+
+# Ignore Docker-related files
+.dockerignore
+Dockerfile
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+filedb.sqlite
+grouped_faces

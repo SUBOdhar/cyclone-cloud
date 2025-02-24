@@ -17,6 +17,7 @@ const Topbar = (
     toggleViewMode,
     showGridAction = false,
     viewMode,
+    uploading = false,
   },
   Children
 ) => (
@@ -36,7 +37,10 @@ const Topbar = (
       )}
       {showUploadActions && (
         <>
+          {console.log(uploading)}
+
           <button
+            disabled={uploading}
             onClick={() => fileInputRef.current.click()}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >

@@ -5,6 +5,7 @@ import FilesUploadPage from "./pages/FilesUploadPage";
 import ImagesPage from "./pages/ImagesPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
+import SharePage from "./pages/SharedPhotoPage";
 
 const App = () => {
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "Light");
@@ -42,6 +43,7 @@ const App = () => {
               path="/settings"
               element={<SettingsPage theme={theme} toggleTheme={toggleTheme} />}
             />
+            <Route path="/shared/:token" element={<SharePage />} />
           </Routes>
         </main>
       </div>
