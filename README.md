@@ -5,8 +5,9 @@
 
 ## Table of Contents
 - [Clone the Repository](#clone-the-repository)
-- [For Windows](#for-windows)
-- [For Linux](#for-linux)
+- [Windows Installation](#for-windows)
+- [Linux Installation](#for-linux)
+- [Contribution](#contribution)
 
 ## Clone the Repository
 
@@ -73,6 +74,6 @@ For Linux-based systems, follow these steps to build and run the server:
 
 5. Open your browser and go to:
 
-    ```
-    http://localhost:3001
-    ```
+```
+http://localhost:3001
+```
