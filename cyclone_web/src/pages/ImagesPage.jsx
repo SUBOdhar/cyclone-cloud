@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
+import Hero from "image-hero";
 import Topbar from "../components/Topbar";
 import AlertDialog from "../components/AlertDialog"; // Custom AlertDialog component
 import {
@@ -23,6 +24,10 @@ import {
   Share2,
   Heart,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import ImageList from "@mui/material/ImageList";
+import ImageListItem from "@mui/material/ImageListItem";
+import Box from "@mui/material/Box";
 
 const ImagesPage = ({ theme, toggleTheme }) => {
   const [images, setImages] = useState([]);
@@ -38,6 +43,9 @@ const ImagesPage = ({ theme, toggleTheme }) => {
   const dummyRef = useRef(null);
   const url = import.meta.env.VITE_url || "";
 
+  // Retrieve owner id from localStorage (set during login)
+  const ownerId = localStorage.getItem("userid");
+  const navigate = useNavigate();
   // Alert dialog state & helper
   const [alertConfig, setAlertConfig] = useState({
     open: false,
@@ -48,6 +56,21 @@ const ImagesPage = ({ theme, toggleTheme }) => {
   const showAlert = (body, title = "Alert", onOk = null) => {
     setAlertConfig({ open: true, title, body, onOk });
   };
+  const handleUnauthorized = (res) => {
+    if (res.status === 401) {
+      showAlert(
+        "Your session has expired. Please log in again.",
+        "Unauthorized",
+        () => {
+          localStorage.setItem("userid");
+          localStorage.setItem("loginstat", false);
+          navigate("/");
+        }
+      );
+      return true;
+    }
+    return false;
+  };
 
   // Favorites stored in localStorage
   const [favorites, setFavorites] = useState(() => {
@@ -55,13 +78,25 @@ const ImagesPage = ({ theme, toggleTheme }) => {
     return stored ? JSON.parse(stored) : [];
   });
 
-  // Fetch images from the API
+  // Fetch images from the API with owner id
   const fetchImages = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${url}/api/images`);
-      if (!res.ok) throw new Error("Failed to fetch images");
+      const res = await fetch(`${url}/api/images`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ owner_id: ownerId }),
+      });
+      if (!res.ok) {
+        if (handleUnauthorized(res)) return;
+        throw new Error("Failed to fetch image");
+      }
       const data = await res.json();
+      if (data.message === "No images found") {
+        showAlert("No images found");
+      }
+      console.log(data);
       setImages(data);
     } catch (error) {
       console.error(error);
@@ -69,7 +104,7 @@ const ImagesPage = ({ theme, toggleTheme }) => {
     } finally {
       setLoading(false);
     }
-  }, [url]);
+  }, [url, ownerId]);
 
   useEffect(() => {
     fetchImages();
@@ -176,8 +211,8 @@ const ImagesPage = ({ theme, toggleTheme }) => {
     let interval;
     if (slideshow && selectedImageIndex !== null) {
       interval = setInterval(() => {
-        setSelectedImageIndex(
-          (prev) => (prev < filteredImages.length - 1 ? prev + 1 : 0) // Loop back to first image
+        setSelectedImageIndex((prev) =>
+          prev < filteredImages.length - 1 ? prev + 1 : 0
         );
         resetTransformations();
       }, 3000);
@@ -241,15 +276,16 @@ const ImagesPage = ({ theme, toggleTheme }) => {
     }
   }, [currentImage, url]);
 
-  // Share handler (POST request returns a shareable link)
+  // Share handler: Pass owner_id along with fileId
   const handleShare = async (fileId) => {
     try {
       const res = await fetch(`${url}/gsl`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ fileId }),
+        body: JSON.stringify({ fileId, owner_id: ownerId }),
       });
       const data = await res.json();
       navigator.clipboard.writeText(data.shareableLink);
@@ -293,7 +329,7 @@ const ImagesPage = ({ theme, toggleTheme }) => {
 
   // Separate Modal component for better readability
   const ImageModal = () => (
-    <div className="fixed flex justify-center items-center inset-0 z-50">
+    <div className="fixed flex justify-center items-center inset-0 z-10000">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black bg-opacity-50"
@@ -468,13 +504,15 @@ const ImagesPage = ({ theme, toggleTheme }) => {
             className="bg-white dark:bg-gray-800 p-4 rounded-lg relative"
             style={transformStyle}
           >
-            <img
-              src={`${url}/images/${currentImage.filename}`}
-              alt={currentImage.filename}
-              className="max-w-full object-contain mx-auto"
-              style={{ maxHeight: "80vh" }}
-              loading="lazy"
-            />
+            <Hero id={currentImage.file_id}>
+              <img
+                src={`${url}/images/${ownerId}/${currentImage.filename}`}
+                alt={currentImage.filename}
+                className="max-w-full object-contain mx-auto"
+                style={{ maxHeight: "80vh" }}
+                loading="lazy"
+              />
+            </Hero>
           </div>
         </div>
       </div>
@@ -482,7 +520,7 @@ const ImagesPage = ({ theme, toggleTheme }) => {
   );
 
   return (
-    <div className="p-6 flex-1 flex flex-col">
+    <Box position={"relative"}>
       <Topbar
         pageTitle="Images"
         searchQuery={searchQuery}
@@ -498,69 +536,66 @@ const ImagesPage = ({ theme, toggleTheme }) => {
         showGridAction={false}
         viewMode={() => {}}
       />
-
-      <div
+      <div className="p-6 flex-1 flex flex-col">
+        {/* <div
         className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6"
         style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}
-      >
-        {loading ? (
-          <div className="text-center text-gray-500 dark:text-gray-400">
-            Loading images...
-          </div>
-        ) : filteredImages.length === 0 ? (
-          <div className="text-center text-gray-500 dark:text-gray-400">
-            {searchQuery
-              ? "No images match your search."
-              : "No images available."}
-          </div>
-        ) : (
-          filteredImages.map((image, index) => (
-            <div
-              key={image.filename}
-              className="bg-white w-54 dark:bg-gray-700 rounded-2xl shadow-lg p-3 flex flex-col items-center cursor-pointer hover:shadow-2xl transition duration-300 relative"
-              onClick={() => {
-                setSelectedImageIndex(index);
-                resetTransformations();
-              }}
-            >
-              {/* Optional favorite badge */}
-              {favorites.includes(image.filename) && (
-                <div className="absolute top-2 right-2">
-                  <Heart className="text-red-500" />
-                </div>
-              )}
-              <div className="w-24 h-24 overflow-hidden rounded-lg mb-2">
-                <img
-                  src={`${url}/images/${image.filename}`}
-                  alt={image.filename}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              </div>
-              <span className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                {truncateFileName(image.filename)}
-              </span>
+      > */}
+        <ImageList variant="masonry" cols={3} gap={8}>
+          {loading ? (
+            <div className="text-center text-gray-500 dark:text-gray-400">
+              Loading images...
             </div>
-          ))
+          ) : filteredImages.length === 0 ? (
+            <div className="text-center text-gray-500 dark:text-gray-400">
+              {searchQuery
+                ? "No images match your search."
+                : "No images available."}
+            </div>
+          ) : (
+            filteredImages.map((image, index) => (
+              <>
+                {console.log(image.file_id)}
+                <ImageListItem key={image.file_id}>
+                  <Hero id={image.file_id}>
+                    <img
+                      srcSet={`${url}/images/${ownerId}/${image.filename}`}
+                      src={`${url}/images/${ownerId}/${image.filename}`}
+                      alt={truncateFileName(image.filename)}
+                      loading="lazy"
+                      style={{
+                        borderRadius: 5,
+                      }}
+                      onClick={() => {
+                        setSelectedImageIndex(index);
+                        resetTransformations();
+                      }}
+                    />
+                  </Hero>
+                </ImageListItem>
+              </>
+            ))
+          )}
+        </ImageList>
+        {/* </div> */}
+
+        {/* Modal for selected image */}
+        {currentImage && <ImageModal />}
+
+        {/* Custom Alert Dialog */}
+        {alertConfig.open && (
+          <AlertDialog
+            title={alertConfig.title}
+            body={alertConfig.body}
+            onOk={() => {
+              setAlertConfig({ ...alertConfig, open: false });
+              if (alertConfig.onOk) alertConfig.onOk();
+            }}
+            onCancel={() => setAlertConfig({ ...alertConfig, open: false })}
+          />
         )}
       </div>
-
-      {/* Modal for selected image */}
-      {currentImage && <ImageModal />}
-
-      {/* Custom Alert Dialog */}
-      {alertConfig.open && (
-        <AlertDialog
-          title={alertConfig.title}
-          body={alertConfig.body}
-          onOk={() => {
-            setAlertConfig({ ...alertConfig, open: false });
-            if (alertConfig.onOk) alertConfig.onOk();
-          }}
-          onCancel={() => setAlertConfig({ ...alertConfig, open: false })}
-        />
-      )}
-    </div>
+    </Box>
   );
 };
 

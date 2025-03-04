@@ -1,42 +1,76 @@
-// src/components/Sidebar.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import { Folder, Image, User, Settings } from "lucide-react";
+import {
+  Drawer,
+  Divider,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Toolbar,
+  useMediaQuery,
+  useTheme,
+  Typography,
+} from "@mui/material";
 
-const Sidebar = () => (
-  <div className="w-full sm:w-64 h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white flex flex-col p-6 shadow-lg">
-    <h1 className="text-2xl font-bold mb-8 tracking-wide">Cyclone Cloud</h1>
-    <nav className="flex flex-col space-y-6">
-      <Link
-        to="/"
-        className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-700 transition-transform transform hover:scale-105"
-      >
-        <Folder className="w-6 h-6" />
-        <span className="text-lg">Files</span>
-      </Link>
-      <Link
-        to="/image"
-        className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-700 transition-transform transform hover:scale-105"
-      >
-        <Image className="w-6 h-6" />
-        <span className="text-lg">Images</span>
-      </Link>
-      <Link
-        to="/profile"
-        className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-700 transition-transform transform hover:scale-105"
-      >
-        <User className="w-6 h-6" />
-        <span className="text-lg">Profile</span>
-      </Link>
-      <Link
-        to="/settings"
-        className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-700 transition-transform transform hover:scale-105"
-      >
-        <Settings className="w-6 h-6" />
-        <span className="text-lg">Settings</span>
-      </Link>
-    </nav>
-  </div>
-);
+const drawerWidth = 240;
 
-export default React.memo(Sidebar);
+const Sidebar = ({ open, toggleDrawer }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  return (
+    <Drawer
+      variant={isMobile ? "temporary" : "permanent"}
+      anchor="left"
+      open={open || !isMobile}
+      onClose={isMobile ? toggleDrawer(false) : undefined}
+      ModalProps={{ keepMounted: true }}
+      sx={{
+        width: drawerWidth,
+        flexShrink: 0,
+        "& .MuiDrawer-paper": {
+          width: drawerWidth,
+          boxSizing: "border-box",
+          backgroundColor: "#1f2937",
+          color: "white",
+          position: isMobile ? "fixed" : "relative", // Prevents overlapping on large screens
+        },
+      }}
+    >
+      <Toolbar>
+        <Typography
+          style={{ marginTop: 10 }}
+          variant="h5"
+          fontFamily={"poppins"}
+        >
+          Cyclone Cloud
+        </Typography>
+      </Toolbar>
+      <Divider />
+      <List>
+        {[
+          { text: "Files", icon: <Folder />, path: "/files" },
+          { text: "Images", icon: <Image />, path: "/image" },
+          { text: "Profile", icon: <User />, path: "/profile" },
+          { text: "Settings", icon: <Settings />, path: "/settings" },
+        ].map(({ text, icon, path }) => (
+          <ListItem key={text} disablePadding>
+            <ListItemButton
+              component={Link}
+              to={path}
+              onClick={isMobile ? toggleDrawer(false) : undefined}
+            >
+              <ListItemIcon sx={{ color: "white" }}>{icon}</ListItemIcon>
+              <ListItemText primary={text} />
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
+    </Drawer>
+  );
+};
+
+export default Sidebar;

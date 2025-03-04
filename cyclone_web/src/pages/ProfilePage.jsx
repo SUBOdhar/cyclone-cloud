@@ -1,16 +1,54 @@
-import React, { useRef } from "react";
+import React, { useState } from "react";
+import {
+  Box,
+  Card,
+  CardContent,
+  Avatar,
+  Typography,
+  Popper,
+  Paper,
+  ClickAwayListener,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+} from "@mui/material";
+import PersonIcon from "@mui/icons-material/Person";
 import Topbar from "../components/Topbar";
-import { User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const ProfilePage = ({ theme, toggleTheme }) => {
-  const dummyRef = useRef(null);
+  // Popper state and anchor element
+  const [popperOpen, setPopperOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const navigate = useNavigate();
+
+  // Toggle Popper on Avatar click
+  const handleAvatarClick = (event) => {
+    setAnchorEl(event.currentTarget);
+    setPopperOpen((prev) => !prev);
+  };
+  const handleLogout = async () => {
+    await fetch("http://localhost:3001/api/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+    localStorage.setItem("loginstat", false);
+    navigate("/");
+  };
+
+  // Close Popper when clicking outside
+  const handleClickAway = () => {
+    setPopperOpen(false);
+  };
+
   return (
-    <div className="p-6 flex-1 flex flex-col">
+    <Box position={'relative'}>
       <Topbar
         pageTitle="Profile"
         searchQuery=""
         setSearchQuery={() => {}}
-        fileInputRef={dummyRef}
+        fileInputRef={null}
         createNewFile={() => {}}
         toggleTheme={toggleTheme}
         theme={theme}
@@ -21,22 +59,63 @@ const ProfilePage = ({ theme, toggleTheme }) => {
         showGridAction={false}
         viewMode={() => {}}
       />
-      <div className="p-6">
-        <div className="bg-white dark:bg-gray-700 rounded-2xl shadow-lg p-6">
-          <div className="flex items-center space-x-4">
-            <User className="w-16 h-16 text-blue-500" />
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+      <Box
+        sx={{
+          p: 2,
+          flexGrow: 1,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Card sx={{ maxWidth: 500, width: "100%", p: 2 }}>
+          <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Avatar
+              sx={{
+                width: 80,
+                height: 80,
+                bgcolor: "primary.main",
+                cursor: "pointer",
+              }}
+              onClick={handleAvatarClick}
+            >
+              <PersonIcon sx={{ fontSize: 40 }} />
+            </Avatar>
+            <Box>
+              <Typography variant="h5" component="div">
                 John Doe
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300">
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
                 john.doe@example.com
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
+      <Popper open={popperOpen} anchorEl={anchorEl} placement="bottom-start">
+        <ClickAwayListener onClickAway={handleClickAway}>
+          <Paper sx={{ p: 1, width: 200 }}>
+            <List>
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => alert("View Profile clicked")}>
+                  <ListItemText primary="View Profile" />
+                </ListItemButton>
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => alert("Edit Profile clicked")}>
+                  <ListItemText primary="Edit Profile" />
+                </ListItemButton>
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => handleLogout()}>
+                  <ListItemText primary="Logout" />
+                </ListItemButton>
+              </ListItem>
+            </List>
+          </Paper>
+        </ClickAwayListener>
+      </Popper>
+    </Box>
   );
 };
 
