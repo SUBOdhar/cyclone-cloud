@@ -2,9 +2,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
+import "./SharePage.css"; // Import external CSS for spinner and any extra styling
 
 const SharePage = () => {
-  // Extract the token from the URL (e.g., /share/:token)
   const { token } = useParams();
   const [fileData, setFileData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -12,7 +12,6 @@ const SharePage = () => {
   const url = import.meta.env.VITE_url || "";
 
   useEffect(() => {
-    // Fetch the shared file information from the backend
     axios
       .get(`${url}/share/${token}`)
       .then((response) => {
@@ -27,11 +26,12 @@ const SharePage = () => {
         );
         setLoading(false);
       });
-  }, [token]);
+  }, [token, url]);
 
   if (loading) {
     return (
       <div style={styles.centered}>
+        <div className="loader"></div>
         <h2>Loading Shared File...</h2>
       </div>
     );
@@ -40,24 +40,23 @@ const SharePage = () => {
   if (error) {
     return (
       <div style={styles.centered}>
-        <h2 style={{ color: "red" }}>Error</h2>
+        <h2 style={styles.errorTitle}>Error</h2>
         <p>{error}</p>
       </div>
     );
   }
 
-  // Destructure file and shared metadata from the response
   const { file, sharedAt, message } = fileData;
-
-  // Determine if the file is an image for preview purposes
   const fileExt = file.filename.split(".").pop().toLowerCase();
   const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(fileExt);
-  const previewUrl = isImage ? `/uploads/${file.filename}` : null;
+  const previewUrl = isImage ? `/uploads/1/${file.filename}` : null;
+  console.log(previewUrl);
 
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h1>Shared File</h1>
+        <h1 style={styles.title}>Shared File</h1>
+        {message && <p style={styles.message}>{message}</p>}
       </header>
 
       <div style={styles.card}>
@@ -67,6 +66,7 @@ const SharePage = () => {
               src={previewUrl}
               alt={file.originalname}
               style={styles.previewImage}
+              width={200}
             />
           </div>
         ) : (
@@ -99,46 +99,61 @@ const SharePage = () => {
       </div>
 
       <footer style={styles.footer}>
-        <small>Powered by Your Application</small>
+        <small>Powered by Cyclone Cloud</small>
       </footer>
     </div>
   );
 };
 
-// Inline styles for simplicity (you can replace these with external CSS)
 const styles = {
   container: {
-    maxWidth: "600px",
+    maxWidth: "800px",
     margin: "2rem auto",
-    fontFamily: "Arial, sans-serif",
     padding: "0 1rem",
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   },
   header: {
     textAlign: "center",
-    marginBottom: "1rem",
+    marginBottom: "2rem",
+    color: "white",
+  },
+  title: {
+    fontSize: "2.5rem",
+    margin: "0",
+  },
+  message: {
+    fontSize: "1rem",
+    marginTop: "0.5rem",
   },
   card: {
-    border: "1px solid #ddd",
-    borderRadius: "8px",
-    padding: "1.5rem",
-    backgroundColor: "#fafafa",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+    background: "#fff",
+    borderRadius: "12px",
+    padding: "2rem",
+    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
+    transition: "transform 0.3s ease",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
+
   previewContainer: {
     textAlign: "center",
-    marginBottom: "1rem",
+    marginBottom: "1.5rem",
   },
   previewImage: {
     maxWidth: "100%",
-    borderRadius: "4px",
+    borderRadius: "8px",
+    transition: "transform 0.3s ease",
   },
   noPreview: {
     textAlign: "center",
-    marginBottom: "1rem",
-    color: "#666",
+    marginBottom: "1.5rem",
+    color: "#999",
   },
   details: {
-    marginBottom: "1rem",
+    fontSize: "1rem",
+    marginBottom: "1.5rem",
+    lineHeight: "1.6",
   },
   actions: {
     textAlign: "center",
@@ -148,18 +163,24 @@ const styles = {
     padding: "0.75rem 1.5rem",
     backgroundColor: "#007bff",
     color: "#fff",
+    borderRadius: "8px",
     textDecoration: "none",
-    borderRadius: "4px",
+    fontSize: "1rem",
+    transition: "background-color 0.3s ease",
   },
   footer: {
     textAlign: "center",
     marginTop: "2rem",
-    color: "#888",
+    color: "#aaa",
+    fontSize: "0.9rem",
   },
   centered: {
     textAlign: "center",
-    marginTop: "2rem",
-    fontFamily: "Arial, sans-serif",
+    marginTop: "4rem",
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+  },
+  errorTitle: {
+    color: "#e74c3c",
   },
 };
 

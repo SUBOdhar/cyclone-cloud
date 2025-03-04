@@ -51,9 +51,14 @@ export default function Topbar({
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
 
-  const handleLogout = () => {
-    localStorage.removeItem("loginstat");
-    handleClose();
+  const url = import.meta.env.VITE_url || "";
+
+  const handleLogout = async () => {
+    await fetch(`${url}/api/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+    localStorage.setItem("loginstat", false);
     navigate("/");
   };
 

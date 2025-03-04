@@ -28,8 +28,10 @@ const ProfilePage = ({ theme, toggleTheme }) => {
     setAnchorEl(event.currentTarget);
     setPopperOpen((prev) => !prev);
   };
+  const url = import.meta.env.VITE_url || "";
+
   const handleLogout = async () => {
-    await fetch("http://localhost:3001/api/logout", {
+    await fetch(`${url}/api/logout`, {
       method: "POST",
       credentials: "include",
     });
@@ -43,7 +45,7 @@ const ProfilePage = ({ theme, toggleTheme }) => {
   };
 
   return (
-    <Box position={'relative'}>
+    <Box position={"relative"}>
       <Topbar
         pageTitle="Profile"
         searchQuery=""

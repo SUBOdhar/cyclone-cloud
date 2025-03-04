@@ -13,7 +13,6 @@ import { MdCyclone } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 import { CircularProgress, InputAdornment } from "@mui/material";
 import { useEffect } from "react";
-import { ClassNames } from "@emotion/react";
 import { Email, Lock } from "@mui/icons-material";
 
 const Card = styled(MuiCard)(({ theme }) => ({
@@ -111,6 +110,7 @@ export default function SignIn() {
     const isPasswordValid = validatePassword(password);
     return isEmailValid && isPasswordValid;
   };
+  const url = import.meta.env.VITE_url || "";
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -121,7 +121,7 @@ export default function SignIn() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:3001/api/login", {
+      const response = await fetch(`${url}/api/login`, {
         method: "POST",
         credentials: "include", // send/receive cookies
         headers: {

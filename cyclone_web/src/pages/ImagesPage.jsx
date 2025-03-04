@@ -417,7 +417,7 @@ const ImagesPage = ({ theme, toggleTheme }) => {
             className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
             onClick={(e) => {
               e.stopPropagation();
-              handleShare(currentImage.id);
+              handleShare(currentImage.file_id);
             }}
             aria-label="Share image"
           >
