@@ -9,7 +9,8 @@ uploads
 # Ignore environment files (sensitive data)
 .env
 .env.local
-
+uploads
+models
 
 
 # Ignore Docker-related files
