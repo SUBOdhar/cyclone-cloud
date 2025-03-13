@@ -20,7 +20,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "cloud_cyclone_storage";
 // Setup middleware
 app.use(
   cors({
-    origin: "http://localhost:5173", // Change this to match your frontend's URL
+    origin: "http://localhost:3001", // Change this to match your frontend's URL
     credentials: true,
   })
 );
@@ -32,8 +32,9 @@ app.use(cookieParser(JWT_SECRET));
 // Rate limiting for API endpoints
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  message: "Too many requests from this IP, please try again later after 15 minutes.",
+  max: 200,
+  message:
+    "Too many requests from this IP, please try again later after 15 minutes.",
 });
 app.use("/api/", apiLimiter);
 app.use("/gsl", apiLimiter);
@@ -85,14 +86,21 @@ app.use(
 // ---------------------
 // Initialize SQLite Databases
 // ---------------------
-const db = new sqlite3.Database("filedb.sqlite", (err) => {
+fs.mkdir(path.join(__dirname, "database"), { recursive: true }, (err) => {
+  if (err) {
+    logger.error("Could not create database directory: " + err.message);
+    process.exit(1);
+  }
+});
+
+const db = new sqlite3.Database("./database/filedb.sqlite", (err) => {
   if (err) {
     logger.error("Could not connect to SQLite files database: " + err.message);
   } else {
     logger.info("Connected to SQLite files database");
   }
 });
-const userdb = new sqlite3.Database("users.sqlite", (err) => {
+const userdb = new sqlite3.Database("./database/users.sqlite", (err) => {
   if (err) {
     logger.error("Could not connect to SQLite users database: " + err.message);
   } else {
@@ -123,6 +131,7 @@ db.serialize(() => {
       filename TEXT NOT NULL,
       originalname TEXT,
       owner_id INTEGER NOT NULL,
+      filepath TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`
   );
@@ -152,7 +161,7 @@ bcrypt.hash("cyclone", 10, (err, hash) => {
   } else {
     userdb.run(
       "INSERT OR IGNORE INTO users (user_name, user_email, user_password) VALUES (?, ?, ?)",
-      ["subodh", "subodh@cyclonecloud.com", hash],
+      ["dev", "cyclone@cyclonecloud.com", hash],
       (err) => {
         if (err) {
           logger.error("Error inserting sample user: " + err.message);
@@ -173,8 +182,12 @@ function authenticateToken(req, res, next) {
     logger.warn("Missing JWT token in signed cookies");
     return res.status(401).json({ error: "Missing token" });
   }
+
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
+      if (err.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Token expired" }); // Frontend should call /api/refresh
+      }
       logger.warn("Invalid JWT token");
       return res.status(403).json({ error: "Invalid token" });
     }
@@ -216,7 +229,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit per file
+  limits: { fileSize: 35 * 1024 * 1024 * 1024 }, // 35GB limit per file
   fileFilter,
 });
 
@@ -278,16 +291,27 @@ app.post("/api/login", (req, res) => {
           return res.status(401).json({ error: "Invalid email or password" });
         }
         // Generate JWT token and set it in a signed, HTTP-only cookie
-        const token = jwt.sign(
+        const accessToken = jwt.sign(
           {
             user_id: userRow.user_id,
-            user_email: userRow.user_email,
-            user_name: userRow.user_name,
           },
           JWT_SECRET,
-          { expiresIn: "1h" }
+          { expiresIn: "15m" }
         );
-        res.cookie("token", token, {
+
+        // Generate Refresh Token (longer-lived)
+        const refreshToken = jwt.sign(
+          { user_id: userRow.user_id },
+          JWT_SECRET,
+          { expiresIn: "7d" } // 7 days expiry
+        );
+        res.cookie("token", accessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production", // set to true in production
+          sameSite: "strict",
+          signed: true,
+        });
+        res.cookie("refreshToken", refreshToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production", // set to true in production
           sameSite: "strict",
@@ -308,10 +332,48 @@ app.post("/api/login", (req, res) => {
 });
 
 // ---------------------
+// Refresh the access token Endpoint (creates a new access token with the help of refresh token)
+// ---------------------
+app.post("/api/refresh", (req, res) => {
+  const refreshToken = req.signedCookies.refreshToken;
+  if (!refreshToken) {
+    return res.status(401).json({ error: "Missing refresh token" });
+  }
+
+  jwt.verify(refreshToken, JWT_SECRET, (err, user) => {
+    if (err) {
+      if (err.name === "TokenExpiredError") {
+        res.clearCookie("token");
+        res.clearCookie("refreshToken");
+        return res.status(401).json({ error: "Token expired" }); // Frontend should call /api/refresh
+      }
+      logger.warn("Invalid JWT token");
+      return res.status(403).json({ error: "Invalid token" });
+    }
+
+    // Generate a new Access Token
+    const newAccessToken = jwt.sign(
+      { user_id: user.user_id },
+      JWT_SECRET,
+      { expiresIn: "15m" } // New 15-minute token
+    );
+    res.cookie("token", newAccessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // set to true in production
+      sameSite: "strict",
+      signed: true,
+    });
+
+    res.json({ message: "logged in" });
+  });
+});
+
+// ---------------------
 // Logout Endpoint (clears the auth cookie)
 // ---------------------
 app.post("/api/logout", (req, res) => {
   res.clearCookie("token");
+  res.clearCookie("refreshToken");
   res.json({ message: "Logout successful" });
 });
 
@@ -326,7 +388,7 @@ app.use("/", express.static("dist"));
 app.post("/api/files", authenticateToken, (req, res) => {
   const owner_id = req.user.user_id;
   db.all(
-    "SELECT file_id, filename, originalname, created_at FROM files WHERE owner_id=?",
+    "SELECT file_id, filename, originalname,filepath, created_at FROM files WHERE owner_id=?",
     [owner_id],
     (err, rows) => {
       if (err) {
@@ -341,6 +403,9 @@ app.post("/api/files", authenticateToken, (req, res) => {
 // ---------------------
 // Upload Files Endpoint
 // ---------------------
+// ---------------------
+// Upload Endpoint (Updated to store file path)
+// ---------------------
 app.post(
   "/api/upload",
   authenticateToken,
@@ -353,15 +418,24 @@ app.post(
     }
     db.serialize(() => {
       db.run("BEGIN TRANSACTION");
+      // Updated statement to include filepath column
       const stmt = db.prepare(
-        "INSERT INTO files (filename, originalname, owner_id) VALUES (?, ?, ?)"
+        "INSERT INTO files (filename, originalname, owner_id, filepath) VALUES (?, ?, ?, ?)"
       );
       req.files.forEach((file) => {
-        stmt.run(file.filename, file.originalname, owner_id, (err) => {
-          if (err) {
-            logger.error("Error inserting file data: " + err.message);
+        // Compute a relative file path (e.g., "ownerId/filename")
+        const filePath = `${owner_id}/${file.filename}`;
+        stmt.run(
+          file.filename,
+          file.originalname,
+          owner_id,
+          filePath,
+          (err) => {
+            if (err) {
+              logger.error("Error inserting file data: " + err.message);
+            }
           }
-        });
+        );
       });
       stmt.finalize();
       db.run("COMMIT", (err) => {
@@ -461,6 +535,48 @@ app.put("/api/files/:filename/rename", authenticateToken, (req, res) => {
         });
       }
     );
+  });
+});
+
+// ---------------------
+// Create a new folder Endpoint
+// ---------------------
+app.post("/api/create-folder", authenticateToken, (req, res) => {
+  const ownerId = req.user.user_id;
+  const { currentFolder, newFolder } = req.body;
+
+  // Validate input: newFolder must be provided.
+  if (!newFolder || typeof newFolder !== "string") {
+    return res
+      .status(400)
+      .json({ error: "New folder name is required and must be a string." });
+  }
+
+  // Define the base folder for this user (e.g., uploads folder for the user)
+  const userBaseFolder = path.join(UPLOADS_FOLDER, String(ownerId));
+  const folderPath = path.join(currentFolder, newFolder);
+  // Build the target folder path:
+  // If a currentFolder is provided, create new folder inside it; otherwise, use the base folder.
+  const targetFolder =
+    currentFolder &&
+    typeof currentFolder === "string" &&
+    currentFolder.trim() !== ""
+      ? path.join(userBaseFolder, currentFolder, newFolder)
+      : path.join(userBaseFolder, newFolder);
+
+  // Create the new folder (recursive in case intermediate directories don't exist)
+  fs.mkdir(targetFolder, { recursive: true }, (err) => {
+    if (err) {
+      logger.error(`Error creating folder at ${targetFolder}: ${err.message}`);
+      return res.status(500).json({ error: "Error creating folder" });
+    }
+    logger.info(
+      `Folder created successfully at ${targetFolder} for owner_id ${ownerId}`
+    );
+    res.json({
+      message: "Folder created successfully",
+      folderPath: folderPath,
+    });
   });
 });
 

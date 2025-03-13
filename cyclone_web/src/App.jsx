@@ -9,6 +9,7 @@ import SharePage from "./pages/SharedPhotoPage";
 import SignIn from "./pages/loginAndRegisterPage";
 import ProtectedRoutes from "./components/ProtectedRoutes";
 import NotFoundPage from "./pages/NotFoundPage"; // Import the NotFoundPage component
+import { getCookie } from "./components/Cookies";
 
 const App = () => {
   const [theme, setTheme] = useState(
@@ -16,12 +17,10 @@ const App = () => {
   );
   const location = useLocation(); // Get the current path
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
-  const loginStat =
-    localStorage.getItem("loginstat") == "true" ? true : false || false;
-  console.log(loginStat);
-
-  const toggleDrawer = (open) => () => {
-    setIsDrawerOpen(open);
+  const loginStat = getCookie("loginstat") == "true" ? true : false || false;
+  const toggleDrawer = () => {
+    const set = !isDrawerOpen; // More concise way to toggle the boolean
+    setIsDrawerOpen(set);
   };
   const [user, setUser] = useState({ username: "", useremail: "", userid: "" });
   useEffect(() => {
@@ -49,7 +48,11 @@ const App = () => {
             path="/files"
             element={
               <ProtectedRoutes loginStatus={loginStat}>
-                <FilesUploadPage theme={theme} toggleTheme={toggleTheme} />
+                <FilesUploadPage
+                  theme={theme}
+                  toggleTheme={toggleTheme}
+                  toggleDrawer={toggleDrawer}
+                />
               </ProtectedRoutes>
             }
           />
@@ -57,7 +60,11 @@ const App = () => {
             path="/image"
             element={
               <ProtectedRoutes loginStatus={loginStat}>
-                <ImagesPage theme={theme} toggleTheme={toggleTheme} />
+                <ImagesPage
+                  theme={theme}
+                  toggleTheme={toggleTheme}
+                  toggleDrawer={toggleDrawer}
+                />
               </ProtectedRoutes>
             }
           />
@@ -65,7 +72,11 @@ const App = () => {
             path="/profile"
             element={
               <ProtectedRoutes loginStatus={loginStat}>
-                <ProfilePage theme={theme} toggleTheme={toggleTheme} />
+                <ProfilePage
+                  theme={theme}
+                  toggleTheme={toggleTheme}
+                  toggleDrawer={toggleDrawer}
+                />
               </ProtectedRoutes>
             }
           />
@@ -73,7 +84,11 @@ const App = () => {
             path="/settings"
             element={
               <ProtectedRoutes loginStatus={loginStat}>
-                <SettingsPage theme={theme} toggleTheme={toggleTheme} />
+                <SettingsPage
+                  theme={theme}
+                  toggleTheme={toggleTheme}
+                  toggleDrawer={toggleDrawer}
+                />
               </ProtectedRoutes>
             }
           />

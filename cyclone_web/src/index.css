@@ -7,40 +7,10 @@ html.dark {
 
 /* Custom Scrollbar Styles */
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 8px;
+  display: none;
 }
 
-::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 20px;
-    /* Light mode track */
-}
 
-::-webkit-scrollbar-thumb {
-    background-color: #151d2d;
-    /* Thumb color */
-    border-radius: 20px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background-color: #555;
-}
-
-/* Dark Mode */
-.dark ::-webkit-scrollbar-track {
-    background: #2d2d2d;
-}
-
-.dark ::-webkit-scrollbar-thumb {
-    background-color: #555;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-    background-color: #777;
-}
 
 /* AlertDialog background */
 .alertdialog {

@@ -1,21 +1,43 @@
 import React from "react";
+import { motion } from "framer-motion";
+
+const backdropVariants = {
+  hidden: { opacity: 0, backdropFilter: "blur(0px)" },
+  visible: {
+    opacity: 1,
+    backdropFilter: "blur(8px)",
+    transition: { duration: 0.3 },
+  },
+};
+
+const modalVariants = {
+  hidden: { y: "-50px", opacity: 0 },
+  visible: {
+    y: "0",
+    opacity: 1,
+    transition: { duration: 0.3 },
+  },
+};
 
 const AlertDialog = ({ body, title = "Alert", onCancel, onOk }) => {
-  // Handler for clicks on the backdrop
+  // Close the dialog if the backdrop is clicked
   const handleBackdropClick = (e) => {
-    // Close the dialog if the backdrop is clicked (i.e. if the clicked element has the dialog's id)
     if (e.target.id === "myAlertDialog" && onCancel) {
       onCancel();
     }
   };
 
   return (
-    <div
+    <motion.div
       id="myAlertDialog"
       className="alertdialog show"
       onClick={handleBackdropClick}
+      variants={backdropVariants}
+      initial="hidden"
+      animate="visible"
+      exit="hidden"
     >
-      <div className="alertdialog-content">
+      <motion.div className="alertdialog-content" variants={modalVariants}>
         <div className="alertdialog-header">{title}</div>
         <div className="alertdialog-body">{body}</div>
         <div className="alertdialog-footer">
@@ -26,8 +48,8 @@ const AlertDialog = ({ body, title = "Alert", onCancel, onOk }) => {
             OK
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

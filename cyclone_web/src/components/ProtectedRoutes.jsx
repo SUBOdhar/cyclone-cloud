@@ -5,7 +5,6 @@ import { CircularProgress, Box } from "@mui/material"; // Import CircularProgres
 export default function ProtectedRoutes({ children, loginStatus }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true); // Add state to manage loading status
-  console.log(loginStatus);
   useEffect(() => {
     if (!loginStatus) {
       navigate("/"); // Redirect to home or login page if not logged in

@@ -16,9 +16,11 @@ models
 # Ignore Docker-related files
 .dockerignore
 Dockerfile
-
+database
 # Ignore system files
 .DS_Store
 Thumbs.db
-filedb.sqlite
+*.sqlite
 grouped_faces
+faceDetect.js
+models

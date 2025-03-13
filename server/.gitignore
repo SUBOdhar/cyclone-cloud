@@ -14,7 +14,7 @@ dist-ssr
 uploads
 dist
 grouped_faces
-filedb.sqlite
+.sqlite
 
 # Editor directories and files
 .vscode/*

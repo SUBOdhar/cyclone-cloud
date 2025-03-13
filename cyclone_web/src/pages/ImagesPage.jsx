@@ -4,6 +4,7 @@ import React, {
   useRef,
   useCallback,
   useMemo,
+  use,
 } from "react";
 import Hero from "image-hero";
 import Topbar from "../components/Topbar";
@@ -23,16 +24,26 @@ import {
   Download,
   Share2,
   Heart,
+  MoreVertical,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ImageList from "@mui/material/ImageList";
 import ImageListItem from "@mui/material/ImageListItem";
 import Box from "@mui/material/Box";
+import {
+  useMediaQuery,
+  useTheme,
+  MenuItem,
+  Menu,
+  Tooltip,
+  ListItemIcon,
+  IconButton,
+} from "@mui/material";
+import { deleteCookie, getCookie } from "../components/Cookies";
 
-const ImagesPage = ({ theme, toggleTheme }) => {
+const ImagesPage = ({ theme, toggleTheme, toggleDrawer }) => {
   const [images, setImages] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  // Store the selected image index instead of its filename
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const [rotation, setRotation] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -40,12 +51,23 @@ const ImagesPage = ({ theme, toggleTheme }) => {
   const [flipVertical, setFlipVertical] = useState(false);
   const [loading, setLoading] = useState(false);
   const [slideshow, setSlideshow] = useState(false);
+  const [anchorE2, setAnchorE2] = useState(null); // For mobile "More" menu
+  const handleClick2 = (event) => setAnchorE2(event.currentTarget);
+  const handleClose2 = () => setAnchorE2(null);
+  // dummyRef is available if needed for file input operations
   const dummyRef = useRef(null);
   const url = import.meta.env.VITE_url || "";
-
-  // Retrieve owner id from localStorage (set during login)
-  const ownerId = localStorage.getItem("userid");
+  const ownerId = getCookie("userid");
   const navigate = useNavigate();
+
+  // State to control hero z-index in modal
+  const [heroMaxZ, setHeroMaxZ] = useState(false);
+
+  // Handler to set hero z-index to maximum
+  const handleHeroClick = useCallback(() => {
+    setHeroMaxZ(true);
+  }, []);
+
   // Alert dialog state & helper
   const [alertConfig, setAlertConfig] = useState({
     open: false,
@@ -56,21 +78,31 @@ const ImagesPage = ({ theme, toggleTheme }) => {
   const showAlert = (body, title = "Alert", onOk = null) => {
     setAlertConfig({ open: true, title, body, onOk });
   };
-  const handleUnauthorized = (res) => {
-    if (res.status === 401) {
+
+  const handleUnauthorized = useCallback(async () => {
+    const res = await fetch(`${url}/api/refresh`, {
+      method: "POST",
+      credentials: "include",
+      mode: "cors",
+
+      headers: { "Content-Type": "application/json" },
+    });
+    console.log("Logged ");
+    const data = await res.json();
+    if (data.error === "Token expired") {
+      deleteCookie("loginstat");
+      deleteCookie("userid");
       showAlert(
         "Your session has expired. Please log in again.",
-        "Unauthorized",
-        () => {
-          localStorage.setItem("userid");
-          localStorage.setItem("loginstat", false);
-          navigate("/");
-        }
+        "Unauthorized"
       );
-      return true;
+      navigate("/");
     }
-    return false;
-  };
+    return data.error === "Token expired";
+  }, [url, navigate]);
+  useEffect(() => {
+    handleUnauthorized();
+  }, [url]);
 
   // Favorites stored in localStorage
   const [favorites, setFavorites] = useState(() => {
@@ -89,36 +121,50 @@ const ImagesPage = ({ theme, toggleTheme }) => {
         body: JSON.stringify({ owner_id: ownerId }),
       });
       if (!res.ok) {
-        if (handleUnauthorized(res)) return;
+        if (await handleUnauthorized()) return;
         throw new Error("Failed to fetch image");
       }
       const data = await res.json();
-      if (data.message === "No images found") {
-        showAlert("No images found");
-      }
       console.log(data);
+      if (data.message == "No images found") {
+        showAlert("No images found");
+        setImages([]);
+        return;
+      }
+      if (
+        data.message ==
+        "Too many requests from this IP, please try again later after 15 minutes."
+      ) {
+        showAlert(
+          "Too many requests, please try again later after 15 minutes."
+        );
+        setImages([]);
+        setTimeout(fetchImages, 15 * 60 * 1010);
+        return;
+      }
       setImages(data);
     } catch (error) {
-      console.error(error);
       showAlert("Error fetching images");
     } finally {
       setLoading(false);
     }
-  }, [url, ownerId]);
+  }, [url, ownerId, handleUnauthorized]);
 
   useEffect(() => {
     fetchImages();
-  }, [fetchImages]);
+  }, [url, fetchImages]);
 
   // Filter images based on the search query
   const filteredImages = useMemo(
     () =>
       images.filter((image) =>
-        image.filename.toLowerCase().includes(searchQuery.toLowerCase())
+        image?.filename?.toLowerCase().includes(searchQuery.toLowerCase())
       ),
     [images, searchQuery]
   );
-
+  const hasImages = useMemo(() => {
+    return filteredImages.length > 0;
+  }, [filteredImages]);
   // Helper to truncate long filenames
   const truncateFileName = useCallback((filename, maxLength = 20) => {
     if (filename.length <= maxLength) return filename;
@@ -139,6 +185,7 @@ const ImagesPage = ({ theme, toggleTheme }) => {
     setZoom(1);
     setFlipHorizontal(false);
     setFlipVertical(false);
+    setHeroMaxZ(false); // reset hero z-index when closing modal or resetting transformations
   }, []);
 
   // Close the modal and reset states
@@ -191,6 +238,24 @@ const ImagesPage = ({ theme, toggleTheme }) => {
     });
   }, [filteredImages.length, resetTransformations]);
 
+  // Helper to handle image click
+  const handleImageClick = useCallback(
+    (index) => {
+      setSelectedImageIndex(index);
+      resetTransformations();
+    },
+    [resetTransformations]
+  );
+
+  // Helper to wrap button callbacks with stopPropagation
+  const createButtonHandler = useCallback(
+    (callback) => (e) => {
+      e.stopPropagation();
+      callback();
+    },
+    []
+  );
+
   // Compute the transform style for the modal container
   const transformStyle = useMemo(
     () => ({
@@ -231,22 +296,37 @@ const ImagesPage = ({ theme, toggleTheme }) => {
   useEffect(() => {
     if (selectedImageIndex !== null) {
       const handleKeyDown = (e) => {
-        if (e.key === "Escape") {
-          closeModal();
-        } else if (e.key === "ArrowLeft") {
-          handlePrev();
-        } else if (e.key === "ArrowRight") {
-          handleNext();
-        } else if (e.key.toLowerCase() === "r") {
-          handleRotate();
-        } else if (e.key === "+" || e.key === "=") {
-          handleZoomIn();
-        } else if (e.key === "-") {
-          handleZoomOut();
-        } else if (e.key.toLowerCase() === "h") {
-          handleFlipHorizontal();
-        } else if (e.key.toLowerCase() === "v") {
-          handleFlipVertical();
+        switch (e.key) {
+          case "Escape":
+            closeModal();
+            break;
+          case "ArrowLeft":
+            handlePrev();
+            break;
+          case "ArrowRight":
+            handleNext();
+            break;
+          case "r":
+          case "R":
+            handleRotate();
+            break;
+          case "+":
+          case "=":
+            handleZoomIn();
+            break;
+          case "-":
+            handleZoomOut();
+            break;
+          case "h":
+          case "H":
+            handleFlipHorizontal();
+            break;
+          case "v":
+          case "V":
+            handleFlipVertical();
+            break;
+          default:
+            break;
         }
       };
       document.addEventListener("keydown", handleKeyDown);
@@ -276,6 +356,9 @@ const ImagesPage = ({ theme, toggleTheme }) => {
     }
   }, [currentImage, url]);
 
+  const themes = useTheme();
+  const isMobile = useMediaQuery(themes.breakpoints.down("sm"));
+
   // Share handler: Pass owner_id along with fileId
   const handleShare = async (fileId) => {
     try {
@@ -291,7 +374,6 @@ const ImagesPage = ({ theme, toggleTheme }) => {
       navigator.clipboard.writeText(data.shareableLink);
       showAlert("Share URL copied to clipboard!");
     } catch (error) {
-      console.error("Error sharing file:", error);
       showAlert("Error sharing file");
     }
   };
@@ -315,19 +397,16 @@ const ImagesPage = ({ theme, toggleTheme }) => {
   const toggleFavorite = useCallback(() => {
     if (currentImage) {
       setFavorites((prev) => {
-        let newFavs;
-        if (prev.includes(currentImage.filename)) {
-          newFavs = prev.filter((f) => f !== currentImage.filename);
-        } else {
-          newFavs = [...prev, currentImage.filename];
-        }
+        const newFavs = prev.includes(currentImage.filename)
+          ? prev.filter((f) => f !== currentImage.filename)
+          : [...prev, currentImage.filename];
         localStorage.setItem("favorites", JSON.stringify(newFavs));
         return newFavs;
       });
     }
   }, [currentImage]);
 
-  // Separate Modal component for better readability
+  // Image Modal Component (could be moved to its own file for further separation)
   const ImageModal = () => (
     <div className="fixed flex justify-center items-center inset-0 z-10000">
       {/* Backdrop */}
@@ -338,107 +417,165 @@ const ImagesPage = ({ theme, toggleTheme }) => {
       {/* Modal content */}
       <div className="relative z-[110]">
         {/* Transformation Controls (Top Left) */}
-        <div className="fixed top-4 left-4 flex items-center space-x-2 z-[120] flex-wrap">
-          <button
-            className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleRotate();
-            }}
-            aria-label="Rotate image"
-          >
-            <RotateCcw />
-          </button>
-          <button
-            className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleZoomIn();
-            }}
-            aria-label="Zoom in"
-          >
-            <ZoomIn />
-          </button>
-          <button
-            className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleZoomOut();
-            }}
-            aria-label="Zoom out"
-          >
-            <ZoomOut />
-          </button>
-          <button
-            className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleFlipHorizontal();
-            }}
-            aria-label="Flip horizontally"
-          >
-            <FlipHorizontal />
-          </button>
-          <button
-            className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleFlipVertical();
-            }}
-            aria-label="Flip vertically"
-          >
-            <FlipVertical />
-          </button>
-          <button
-            className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleResetTransform();
-            }}
-            aria-label="Reset transformation"
-          >
-            Reset
-          </button>
-        </div>
-
+        {!isMobile && (
+          <div className="fixed top-4 left-4 flex items-center space-x-2 z-[120] flex-wrap">
+            <button
+              className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
+              onClick={createButtonHandler(handleRotate)}
+              aria-label="Rotate image"
+            >
+              <RotateCcw />
+            </button>
+            <button
+              className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
+              onClick={createButtonHandler(handleZoomIn)}
+              aria-label="Zoom in"
+            >
+              <ZoomIn />
+            </button>
+            <button
+              className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
+              onClick={createButtonHandler(handleZoomOut)}
+              aria-label="Zoom out"
+            >
+              <ZoomOut />
+            </button>
+            <button
+              className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
+              onClick={createButtonHandler(handleFlipHorizontal)}
+              aria-label="Flip horizontally"
+            >
+              <FlipHorizontal />
+            </button>
+            <button
+              className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
+              onClick={createButtonHandler(handleFlipVertical)}
+              aria-label="Flip vertically"
+            >
+              <FlipVertical />
+            </button>
+            <button
+              className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
+              onClick={createButtonHandler(handleResetTransform)}
+              aria-label="Reset transformation"
+            >
+              Reset
+            </button>
+          </div>
+        )}
         {/* Utility Controls (Top Right) */}
         <div className="fixed top-4 right-4 flex items-center space-x-2 z-[120] flex-wrap">
+          {isMobile ? (
+            <>
+              <Tooltip title="More">
+                <IconButton
+                  onClick={handleClick2}
+                  variant="contained"
+                  size="small"
+                  sx={{ ml: 0, boxShadow: 0, padding: 0 }}
+                  aria-controls={Boolean(anchorE2) ? "more-menu" : undefined}
+                  aria-haspopup="true"
+                  aria-expanded={Boolean(anchorE2) ? "true" : undefined}
+                >
+                  <MoreVertical color="white" />
+                </IconButton>
+              </Tooltip>
+              {/* Only render the menu if the anchor is rendered */}
+              {Boolean(anchorE2) && (
+                <Menu
+                  anchorEl={anchorE2}
+                  id="more-menu"
+                  open={Boolean(anchorE2)}
+                  onClose={handleClose2}
+                  onClick={handleClose2}
+                  slotProps={{
+                    paper: {
+                      elevation: 0,
+                      sx: {
+                        overflow: "visible",
+                        filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
+                        mt: 1.5,
+                        "& .MuiAvatar-root": {
+                          width: 32,
+                          height: 32,
+                          ml: -0.5,
+                          mr: 1,
+                        },
+                        "&::before": {
+                          content: '""',
+                          display: "block",
+                          position: "absolute",
+                          top: 0,
+                          right: 14,
+                          width: 10,
+                          height: 10,
+                          bgcolor: "background.paper",
+                          transform: "translateY(-50%) rotate(45deg)",
+                          zIndex: 0,
+                        },
+                      },
+                    },
+                  }}
+                  transformOrigin={{ horizontal: "right", vertical: "top" }}
+                  anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+                >
+                  <MenuItem onClick={createButtonHandler(handleDownload)}>
+                    <ListItemIcon>
+                      <Download fontSize="small" />
+                    </ListItemIcon>
+                    Download
+                  </MenuItem>
+                  <MenuItem
+                    onClick={createButtonHandler(() =>
+                      handleShare(currentImage.file_id)
+                    )}
+                  >
+                    <ListItemIcon>
+                      <Share2 fontSize="small" />
+                    </ListItemIcon>
+                    Share
+                  </MenuItem>
+                  <MenuItem
+                    onClick={createButtonHandler(handleToggleFullscreen)}
+                  >
+                    <ListItemIcon>
+                      <Maximize fontSize="small" />
+                    </ListItemIcon>
+                    Fullscreen
+                  </MenuItem>
+                </Menu>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
+                onClick={createButtonHandler(handleDownload)}
+                aria-label="Download image"
+              >
+                <Download />
+              </button>
+              <button
+                className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
+                onClick={createButtonHandler(() =>
+                  handleShare(currentImage.file_id)
+                )}
+                aria-label="Share image"
+              >
+                <Share2 />
+              </button>
+              <button
+                className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
+                onClick={createButtonHandler(handleToggleFullscreen)}
+                aria-label="Toggle fullscreen"
+              >
+                <Maximize />
+              </button>
+            </>
+          )}
           <button
             className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDownload();
-            }}
-            aria-label="Download image"
-          >
-            <Download />
-          </button>
-          <button
-            className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleShare(currentImage.file_id);
-            }}
-            aria-label="Share image"
-          >
-            <Share2 />
-          </button>
-          <button
-            className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleFullscreen();
-            }}
-            aria-label="Toggle fullscreen"
-          >
-            <Maximize />
-          </button>
-          <button
-            className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSlideshow((prev) => !prev);
-            }}
+            onClick={createButtonHandler(() => setSlideshow((prev) => !prev))}
             aria-label={slideshow ? "Stop Slideshow" : "Start Slideshow"}
           >
             {slideshow ? <Pause /> : <Play />}
@@ -449,10 +586,7 @@ const ImagesPage = ({ theme, toggleTheme }) => {
                 ? "bg-red-500 text-white"
                 : "bg-gray-700 text-white hover:bg-gray-600"
             }`}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleFavorite();
-            }}
+            onClick={createButtonHandler(toggleFavorite)}
             aria-label="Toggle favorite"
           >
             <Heart />
@@ -460,10 +594,7 @@ const ImagesPage = ({ theme, toggleTheme }) => {
           {/* Close Modal */}
           <button
             className="bg-black text-white p-2 rounded-full hover:bg-red-500 focus:outline-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              closeModal();
-            }}
+            onClick={createButtonHandler(closeModal)}
             aria-label="Close modal"
           >
             <X />
@@ -474,10 +605,7 @@ const ImagesPage = ({ theme, toggleTheme }) => {
         <div className="fixed left-4 top-1/2 transform -translate-y-1/2 z-[120]">
           <button
             className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none disabled:opacity-50"
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePrev();
-            }}
+            onClick={createButtonHandler(handlePrev)}
             disabled={selectedImageIndex === 0}
             aria-label="Previous image"
           >
@@ -487,10 +615,7 @@ const ImagesPage = ({ theme, toggleTheme }) => {
         <div className="fixed right-4 top-1/2 transform -translate-y-1/2 z-[120]">
           <button
             className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600 focus:outline-none disabled:opacity-50"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleNext();
-            }}
+            onClick={createButtonHandler(handleNext)}
             disabled={selectedImageIndex === filteredImages.length - 1}
             aria-label="Next image"
           >
@@ -504,7 +629,11 @@ const ImagesPage = ({ theme, toggleTheme }) => {
             className="bg-white dark:bg-gray-800 p-4 rounded-lg relative"
             style={transformStyle}
           >
-            <Hero id={currentImage.file_id}>
+            {/* When the Hero component is clicked, handleHeroClick is called to set its z-index to max */}
+            <Hero
+              id={currentImage.file_id}
+              style={heroMaxZ ? { zIndex: 10999 } : {}}
+            >
               <img
                 src={`${url}/images/${ownerId}/${currentImage.filename}`}
                 alt={currentImage.filename}
@@ -535,18 +664,15 @@ const ImagesPage = ({ theme, toggleTheme }) => {
         toggleViewMode={() => {}}
         showGridAction={false}
         viewMode={() => {}}
+        toggleSidebar={toggleDrawer}
       />
       <div className="p-6 flex-1 flex flex-col">
-        {/* <div
-        className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6"
-        style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}
-      > */}
-        <ImageList variant="masonry" cols={3} gap={8}>
+        <ImageList variant="standard" cols={isMobile ? 2 : 3} gap={8}>
           {loading ? (
             <div className="text-center text-gray-500 dark:text-gray-400">
               Loading images...
             </div>
-          ) : filteredImages.length === 0 ? (
+          ) : !hasImages ? (
             <div className="text-center text-gray-500 dark:text-gray-400">
               {searchQuery
                 ? "No images match your search."
@@ -554,30 +680,24 @@ const ImagesPage = ({ theme, toggleTheme }) => {
             </div>
           ) : (
             filteredImages.map((image, index) => (
-              <>
-                {console.log(image.file_id)}
-                <ImageListItem key={image.file_id}>
-                  <Hero id={image.file_id}>
-                    <img
-                      srcSet={`${url}/images/${ownerId}/${image.filename}`}
-                      src={`${url}/images/${ownerId}/${image.filename}`}
-                      alt={truncateFileName(image.filename)}
-                      loading="lazy"
-                      style={{
-                        borderRadius: 5,
-                      }}
-                      onClick={() => {
-                        setSelectedImageIndex(index);
-                        resetTransformations();
-                      }}
-                    />
-                  </Hero>
-                </ImageListItem>
-              </>
+              <ImageListItem key={image?.file_id}>
+                <Hero
+                  id={image.file_id}
+                  style={heroMaxZ ? { zIndex: 9999 } : {}}
+                  onClick={handleHeroClick}
+                >
+                  <img
+                    src={`${url}/images/${ownerId}/${image.filename}`}
+                    alt={truncateFileName(image.filename)}
+                    loading="lazy"
+                    style={{ borderRadius: 5 }}
+                    onClick={() => handleImageClick(index)}
+                  />
+                </Hero>
+              </ImageListItem>
             ))
           )}
         </ImageList>
-        {/* </div> */}
 
         {/* Modal for selected image */}
         {currentImage && <ImageModal />}

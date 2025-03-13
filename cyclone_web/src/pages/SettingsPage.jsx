@@ -2,7 +2,7 @@ import React, { useRef } from "react";
 import Topbar from "../components/Topbar";
 import { Sun, Moon } from "lucide-react";
 
-const SettingsPage = ({ theme, toggleTheme }) => {
+const SettingsPage = ({ theme, toggleTheme, toggleDrawer }) => {
   const dummyRef = useRef(null);
   return (
     <>
@@ -20,6 +20,7 @@ const SettingsPage = ({ theme, toggleTheme }) => {
         toggleViewMode={() => {}}
         showGridAction={false}
         viewMode={() => {}}
+        toggleSidebar={toggleDrawer}
       />
       <div className="p-6 flex-1 flex flex-col">
         <div className="p-6">

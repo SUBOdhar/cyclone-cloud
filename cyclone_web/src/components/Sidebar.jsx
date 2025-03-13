@@ -26,7 +26,7 @@ const Sidebar = ({ open, toggleDrawer }) => {
       variant={isMobile ? "temporary" : "permanent"}
       anchor="left"
       open={open || !isMobile}
-      onClose={isMobile ? toggleDrawer(false) : undefined}
+      onClose={isMobile ? () => toggleDrawer() : undefined}
       ModalProps={{ keepMounted: true }}
       sx={{
         width: drawerWidth,
@@ -36,7 +36,7 @@ const Sidebar = ({ open, toggleDrawer }) => {
           boxSizing: "border-box",
           backgroundColor: "#1f2937",
           color: "white",
-          position: isMobile ? "fixed" : "relative", // Prevents overlapping on large screens
+          position: isMobile ? "fixed" : "relative",
         },
       }}
     >
@@ -61,7 +61,7 @@ const Sidebar = ({ open, toggleDrawer }) => {
             <ListItemButton
               component={Link}
               to={path}
-              onClick={isMobile ? toggleDrawer(false) : undefined}
+              onClick={isMobile ? () => toggleDrawer() : undefined}
             >
               <ListItemIcon sx={{ color: "white" }}>{icon}</ListItemIcon>
               <ListItemText primary={text} />
