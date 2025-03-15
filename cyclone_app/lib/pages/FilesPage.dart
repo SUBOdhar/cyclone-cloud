@@ -94,6 +94,8 @@ class _FilespageState extends State<Filespage> {
       case 'epub':
       case 'mobi':
         return Icons.menu_book;
+      case 'apk':
+        return Icons.android;
       default:
         return Icons.insert_drive_file;
     }
@@ -144,7 +146,11 @@ class _FilespageState extends State<Filespage> {
       if (statusCode == 200) {
         final List<dynamic> data = jsonDecode(responseBody);
         setState(() {
-          fileData = data.map((item) => item as Map<String, dynamic>).toList();
+          fileData = data
+              .map((item) => item as Map<String, dynamic>)
+              .toList()
+              .reversed
+              .toList();
         });
       } else if (statusCode == 401) {
         _handleTokenExpiration(); // Directly handle token expiration
@@ -210,8 +216,10 @@ class _FilespageState extends State<Filespage> {
               leading: const Icon(Icons.download),
               title: const Text("Download"),
               onTap: () {
-                _fileService.handleDownload(fileData[index]['filename']);
                 Navigator.pop(context);
+
+                _fileService.handleDownload(
+                    fileData[index]['filename'], context);
               },
             ),
             ListTile(
@@ -348,10 +356,6 @@ class _FilespageState extends State<Filespage> {
       appBar: AppBar(
         title: const Text('Files'),
         actions: [
-          // IconButton(
-          //   onPressed: _handleTokenExpiration,
-          //   icon: const Icon(Icons.logout),
-          // ),
           GestureDetector(
             onTap: _showAccountDialog, // Open account info dialog
 
@@ -372,14 +376,13 @@ class _FilespageState extends State<Filespage> {
               ),
             ),
           ),
-
           SizedBox(
             width: 20,
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _fileService.uploadFile(_handleRefresh),
+        onPressed: () => _fileService.uploadFile(_handleRefresh, context),
         child: const Icon(Icons.add_rounded),
       ),
       body: RefreshIndicator(
@@ -399,6 +402,7 @@ class _FilespageState extends State<Filespage> {
                       onPressed: () => sheet(index),
                       icon: const Icon(Icons.more_vert),
                     ),
+                    onLongPress: () => sheet(index),
                   );
                 },
               ),

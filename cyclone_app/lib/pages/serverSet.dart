@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ServerSetupScreen extends StatefulWidget {
+  const ServerSetupScreen({super.key});
+
   @override
   _ServerSetupScreenState createState() => _ServerSetupScreenState();
 }

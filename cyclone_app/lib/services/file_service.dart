@@ -25,7 +25,7 @@ class FileService {
     _httpClient.close();
   }
 
-  Future<void> handleShare(String id) async {
+  Future<void> handleShare(int id) async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString('user_id') ?? '';
     final List<String>? cookies = prefs.getStringList('cookies');
@@ -84,19 +84,20 @@ class FileService {
     }
   }
 
-  Future<void> handleDownload(String filename) async {
+  Future<void> handleDownload(String filename, BuildContext context) async {
     String url = "$_baseUrl/files/$filename/download";
     final dio = Dio();
 
-    // Attempt to locate a Downloads directory.
     Directory? downloadsDir = Directory('/storage/emulated/0/Download');
     if (!downloadsDir.existsSync()) {
       downloadsDir = await getExternalStorageDirectory();
     }
     if (downloadsDir == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to access storage')),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to access storage')),
+        );
+      }
       return;
     }
 
@@ -104,10 +105,57 @@ class FileService {
     Directory(folderPath).createSync(recursive: true);
     String savePath = "$folderPath/$filename";
 
-    // Use a ValueNotifier to update the progress dialog.
+    final file = File(savePath);
+
+    if (file.existsSync()) {
+      // File already exists, show options
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('File Already Exists'),
+            content: const Text(
+                'Do you want to download a new version or keep the current one?'),
+            actions: [
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () async {
+                      Navigator.of(context).pop();
+                      await _performDownload(
+                          url, savePath, context); // Download and replace
+                    },
+                    child: const Text('Download New'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      // Keep the existing file
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Download cancelled')),
+                        );
+                      }
+                    },
+                    child: const Text('Keep Existing'),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      // File doesn't exist, proceed with download
+      await _performDownload(url, savePath, context);
+    }
+  }
+
+  Future<void> _performDownload(
+      String url, String savePath, BuildContext context) async {
+    final dio = Dio();
     final ValueNotifier<double> progressNotifier = ValueNotifier<double>(0.0);
 
-    // Display a single progress dialog.
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -120,7 +168,10 @@ class FileService {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  LinearProgressIndicator(value: progress),
+                  LinearProgressIndicator(
+                    value: progress,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                   const SizedBox(height: 10),
                   Text("${(progress * 100).toStringAsFixed(0)}% completed"),
                 ],
@@ -132,30 +183,30 @@ class FileService {
     );
 
     try {
-      await dio.download(
-        url,
-        savePath,
-        options: Options(responseType: ResponseType.bytes),
-        onReceiveProgress: (received, total) {
-          if (total != -1) {
-            progressNotifier.value = received / total;
-          }
-        },
-      );
+      await dio.download(url, savePath,
+          options: Options(responseType: ResponseType.bytes),
+          onReceiveProgress: (received, total) {
+        if (total != -1) {
+          progressNotifier.value = received / total;
+        }
+      });
 
-      Navigator.of(context).pop(); // close the progress dialog
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Download completed: $savePath')),
-      );
-
-      OpenFile.open(savePath);
+      // Check here, immediately before UI updates
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close the dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Download completed: $savePath')),
+        );
+        OpenFile.open(savePath);
+      } else {}
     } catch (e) {
-      Navigator.of(context).pop(); // ensure the dialog is closed
-      print('Error in handleDownload: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error downloading file')),
-      );
+      // Check here, immediately before UI updates
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close the dialog on error
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Download failed.')),
+        );
+      }
     }
   }
 
@@ -210,7 +261,7 @@ class FileService {
     }
   }
 
-  Future<void> handleDelete(String id, void Function() handleRefresh) async {
+  Future<void> handleDelete(int id, void Function() handleRefresh) async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString('user_id') ?? '';
     final List<String>? cookies = prefs.getStringList('cookies');
@@ -259,78 +310,154 @@ class FileService {
     }
   }
 
-  Future<void> uploadFile(void Function() handleRefresh) async {
-    FilePickerResult? result =
-        await FilePicker.platform.pickFiles(allowMultiple: true);
+  bool _isPickingFile = false;
 
-    if (result != null && result.files.isNotEmpty) {
-      List<PlatformFile> files = result.files;
-      final prefs = await SharedPreferences.getInstance();
-      final cookies = prefs.getStringList('cookies');
+  Future<void> uploadFile(
+      void Function() handleRefresh, BuildContext context) async {
+    if (_isPickingFile) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File picker is already active.')),
+      );
+      return;
+    }
 
-      try {
-        var request = http.MultipartRequest(
-          'POST',
-          Uri.parse('$_baseUrl/upload'),
+    _isPickingFile = true;
+
+    try {
+      FilePickerResult? result =
+          await FilePicker.platform.pickFiles(allowMultiple: true);
+
+      if (result != null && result.files.isNotEmpty) {
+        List<PlatformFile> files = result.files;
+        final prefs = await SharedPreferences.getInstance();
+        final cookies = prefs.getStringList('cookies');
+
+        final ValueNotifier<double> uploadProgress = ValueNotifier<double>(0.0);
+
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text("Uploading Files..."),
+              content: ValueListenableBuilder<double>(
+                valueListenable: uploadProgress,
+                builder: (context, progress, child) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      LinearProgressIndicator(
+                        value: progress,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      const SizedBox(height: 10),
+                      Text("${(progress * 100).toStringAsFixed(0)}%"),
+                    ],
+                  );
+                },
+              ),
+            );
+          },
         );
-        if (cookies != null && cookies.isNotEmpty) {
-          request.headers['Cookie'] = cookies.join('; ');
-        }
 
-        for (PlatformFile file in files) {
-          late Stream<List<int>> fileStream;
-          if (file.readStream != null) {
-            fileStream = file.readStream!;
-          } else if (file.path != null) {
-            fileStream = File(file.path!).openRead();
-          } else if (file.bytes != null) {
-            fileStream = Stream.fromIterable([file.bytes!]);
-          } else {
-            print("No valid file stream available for file: ${file.name}");
-            continue;
+        try {
+          var request =
+              http.MultipartRequest('POST', Uri.parse('$_baseUrl/upload'));
+          if (cookies != null && cookies.isNotEmpty) {
+            request.headers['Cookie'] = cookies.join('; ');
           }
 
-          final mimeType = lookupMimeType(file.name);
-          final contentType = mimeType != null
-              ? MediaType.parse(mimeType)
-              : MediaType('application', 'octet-stream');
+          int totalBytes = files.fold(0, (sum, file) => sum + file.size);
+          int uploadedBytes = 0;
 
-          request.files.add(http.MultipartFile(
-            'files',
-            fileStream,
-            file.size,
-            filename: file.name,
-            contentType: contentType,
-          ));
-        }
+          for (PlatformFile file in files) {
+            late Stream<List<int>> fileStream;
+            if (file.readStream != null) {
+              fileStream = file.readStream!;
+            } else if (file.path != null) {
+              fileStream = File(file.path!).openRead();
+            } else if (file.bytes != null) {
+              fileStream = Stream.fromIterable([file.bytes!]);
+            } else {
+              print("No valid file stream available for file: ${file.name}");
+              continue;
+            }
 
-        final http.StreamedResponse response = await request.send();
-        final int statusCode = response.statusCode;
+            final mimeType = lookupMimeType(file.name);
+            final contentType = mimeType != null
+                ? MediaType.parse(mimeType)
+                : MediaType('application', 'octet-stream');
 
-        if (statusCode == 200) {
-          handleRefresh();
+            request.files.add(http.MultipartFile(
+              'files',
+              fileStream.map((bytes) {
+                uploadedBytes += bytes.length;
+                uploadProgress.value = uploadedBytes / totalBytes;
+                return bytes;
+              }),
+              file.size,
+              filename: file.name,
+              contentType: contentType,
+            ));
+          }
+
+          final http.StreamedResponse response = await request.send();
+          final int statusCode = response.statusCode;
+
+          Navigator.of(context).pop(); // Close the dialog
+
+          if (statusCode == 200) {
+            handleRefresh();
+            clearFilePickerCache();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Files uploaded successfully!')),
+            );
+          } else {
+            clearFilePickerCache();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Upload failed: $statusCode')),
+            );
+          }
+        } catch (e) {
+          Navigator.of(context).pop(); // Close the dialog
+          _handleNetworkError(e);
+          clearFilePickerCache();
+
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Files uploaded successfully!')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Upload failed: $statusCode')),
+            const SnackBar(content: Text('Network error during upload.')),
           );
         }
-      } catch (e) {
-        _handleNetworkError(e);
+      } else {
+        clearFilePickerCache();
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Network error during upload.')),
+          const SnackBar(content: Text('File upload canceled.')),
         );
       }
-    } else {
+    } catch (e) {
+      clearFilePickerCache();
+
+      print('Error in uploadFile: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('File upload canceled.')),
+        const SnackBar(
+            content: Text(
+                'An unexpected error occurred during file picking or upload.')),
       );
+    } finally {
+      _isPickingFile = false;
     }
   }
 
   void _handleNetworkError(Object e) {
     print("Network error: ${e.toString()}");
+  }
+}
+
+Future<void> clearFilePickerCache() async {
+  try {
+    await FilePicker.platform.clearTemporaryFiles();
+    print('File picker cache cleared.');
+  } catch (e) {
+    print('Error clearing file picker cache: $e');
   }
 }
