@@ -13,7 +13,8 @@
 ## Clone the Repository
 
 To get started, clone the Cyclone Cloud repository using the following command:
-
+> [!TIP]
+> Always Clone the repo outside of onedrives directory.
 ```shell
 git clone https://github.com/SUBOdhar/cyclone-cloud.git
 ```
