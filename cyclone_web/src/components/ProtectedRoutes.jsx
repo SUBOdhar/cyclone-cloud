@@ -1,8 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { CircularProgress, Box } from "@mui/material"; // Import CircularProgress
+import Cookies from "js-cookie";
 
 export default function ProtectedRoutes({ children, loginStatus }) {
+  const loginStat = Cookies.get("loginstat") == true ? true : false || false;
+
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true); // Add state to manage loading status
   useEffect(() => {

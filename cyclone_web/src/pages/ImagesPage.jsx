@@ -30,6 +30,7 @@ import { useNavigate } from "react-router-dom";
 import ImageList from "@mui/material/ImageList";
 import ImageListItem from "@mui/material/ImageListItem";
 import Box from "@mui/material/Box";
+import Cookies from "js-cookie";
 import {
   useMediaQuery,
   useTheme,
@@ -39,7 +40,6 @@ import {
   ListItemIcon,
   IconButton,
 } from "@mui/material";
-import { deleteCookie, getCookie } from "../components/Cookies";
 
 const ImagesPage = ({ theme, toggleTheme, toggleDrawer }) => {
   const [images, setImages] = useState([]);
@@ -57,7 +57,7 @@ const ImagesPage = ({ theme, toggleTheme, toggleDrawer }) => {
   // dummyRef is available if needed for file input operations
   const dummyRef = useRef(null);
   const url = import.meta.env.VITE_url || "";
-  const ownerId = getCookie("userid");
+  const ownerId = Cookies.get("userid");
   const navigate = useNavigate();
 
   // State to control hero z-index in modal
@@ -82,16 +82,18 @@ const ImagesPage = ({ theme, toggleTheme, toggleDrawer }) => {
   const handleUnauthorized = useCallback(async () => {
     const res = await fetch(`${url}/api/refresh`, {
       method: "POST",
-      credentials: "include",
       mode: "cors",
 
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        refreshToken: Cookies.get("refreshToken"),
+      }),
     });
     console.log("Logged ");
     const data = await res.json();
     if (data.error === "Token expired") {
-      deleteCookie("loginstat");
-      deleteCookie("userid");
+      Cookies.remove("loginstat");
+      Cookies.remove("userid");
       showAlert(
         "Your session has expired. Please log in again.",
         "Unauthorized"
@@ -118,7 +120,10 @@ const ImagesPage = ({ theme, toggleTheme, toggleDrawer }) => {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ owner_id: ownerId }),
+        body: JSON.stringify({
+          owner_id: ownerId,
+          refreshToken: Cookies.get("refreshToken"),
+        }),
       });
       if (!res.ok) {
         if (await handleUnauthorized()) return;
@@ -635,7 +640,7 @@ const ImagesPage = ({ theme, toggleTheme, toggleDrawer }) => {
               style={heroMaxZ ? { zIndex: 10999 } : {}}
             >
               <img
-                src={`${url}/images/${ownerId}/${currentImage.filename}`}
+                src={`${url}/file/${ownerId}/${currentImage.filename}`}
                 alt={currentImage.filename}
                 className="max-w-full object-contain mx-auto"
                 style={{ maxHeight: "80vh" }}
@@ -687,7 +692,7 @@ const ImagesPage = ({ theme, toggleTheme, toggleDrawer }) => {
                   onClick={handleHeroClick}
                 >
                   <img
-                    src={`${url}/images/${ownerId}/${image.filename}`}
+                    src={`${url}/file/${ownerId}/${image.filename}`}
                     alt={truncateFileName(image.filename)}
                     loading="lazy"
                     style={{ borderRadius: 5 }}

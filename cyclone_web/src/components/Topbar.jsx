@@ -21,7 +21,7 @@ import Logout from "@mui/icons-material/Logout";
 import { Upload, ViewModule, ViewList, Settings } from "@mui/icons-material";
 import { AlignJustify, Folder, Moon, Plus, Sun, X, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { deleteCookie, getCookie } from "./Cookies";
+import Cookies from "js-cookie";
 
 export default function Topbar({
   pageTitle,
@@ -64,7 +64,7 @@ export default function Topbar({
   const handleMobileMenuClose = () => setMobileMenuAnchorEl(null);
 
   // New Folder creation handler
-  const handelCreateNewFolder = async () => {
+  const handelCreateNewFolder = async (cf) => {
     const newFolder = prompt("Enter the new folder name:");
     if (!newFolder) return;
     try {
@@ -73,7 +73,8 @@ export default function Topbar({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          currentFolder: currentFolder,
+          currentFolder: cf,
+          refreshToken: Cookies.get("refreshToken"),
           newFolder: newFolder,
         }),
       });
@@ -93,10 +94,10 @@ export default function Topbar({
       method: "POST",
       credentials: "include",
     });
-    deleteCookie("loginstat");
+    Cookies.remove("loginstat");
     navigate("/");
   };
-  const username = getCookie("username");
+  const username = Cookies.get("username");
   const toggleSearch = () => setDisplaySearch((prev) => !prev);
 
   // Render the mobile version if on a small screen.
@@ -200,7 +201,7 @@ export default function Topbar({
           {showNewButton && (
             <MenuItem
               onClick={() => {
-                handelCreateNewFolder();
+                handelCreateNewFolder(currentFolder);
                 handleMobileMenuClose();
               }}
             >
@@ -377,7 +378,7 @@ export default function Topbar({
               transformOrigin={{ horizontal: "right", vertical: "top" }}
               anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
             >
-              <MenuItem onClick={handelCreateNewFolder}>
+              <MenuItem onClick={() => handelCreateNewFolder(currentFolder)}>
                 <ListItemIcon>
                   <Folder fontSize="small" />
                 </ListItemIcon>

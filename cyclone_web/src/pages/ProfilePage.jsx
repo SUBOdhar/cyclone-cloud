@@ -28,7 +28,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import ExitToAppIcon from "@mui/icons-material/ExitToApp";
 import Topbar from "../components/Topbar";
 import { useNavigate } from "react-router-dom";
-import { deleteCookie, getCookie } from "../components/Cookies";
+import Cookies from "js-cookie";
+
 
 const ProfilePage = ({ theme, toggleTheme, toggleDrawer }) => {
   const [popperOpen, setPopperOpen] = useState(false);
@@ -39,14 +40,14 @@ const ProfilePage = ({ theme, toggleTheme, toggleDrawer }) => {
 
   const navigate = useNavigate();
   const url = import.meta.env.VITE_url || "";
-  const userId = getCookie("userid");
+  const userId = Cookies.get("userid");
 
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("sm"));
 
   useEffect(() => {
-    const userName = getCookie("username");
-    const userEmail = getCookie("useremail");
+    const userName = Cookies.get("username");
+    const userEmail = Cookies.get("useremail");
     if (userName) {
       setUserName(userName);
     }
@@ -60,8 +61,8 @@ const ProfilePage = ({ theme, toggleTheme, toggleDrawer }) => {
       method: "POST",
       credentials: "include",
     });
-    deleteCookie("loginstat");
-    deleteCookie("userid");
+    Cookies.remove("loginstat");
+    Cookies.remove("userid");
     navigate("/");
   };
   const handleEditToggle = () => {
@@ -119,7 +120,7 @@ const ProfilePage = ({ theme, toggleTheme, toggleDrawer }) => {
             <Box
               sx={{
                 display: "flex",
-                flexDirection: "column",
+                flexDirection: "row",
                 alignItems: "center",
                 textAlign: "center",
                 mb: 3,
@@ -131,36 +132,46 @@ const ProfilePage = ({ theme, toggleTheme, toggleDrawer }) => {
                   height: 100,
                   bgcolor: "primary.main",
                   cursor: "pointer",
+                  fontSize: 60,
                 }}
                 onClick={handleAvatarClick}
               >
-                <PersonIcon sx={{ fontSize: 60 }} />
+                {userName.charAt(0).toUpperCase()}
               </Avatar>
-              <Typography variant="h5" component="div" mt={1}>
-                {isEditing ? (
-                  <TextField
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    label="Name"
-                    fullWidth
-                  />
-                ) : (
-                  userName
-                )}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {isEditing ? (
-                  <TextField
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
-                    label="Email"
-                    fullWidth
-                    type="email"
-                  />
-                ) : (
-                  userEmail
-                )}
-              </Typography>
+              <Box
+                sx={{
+                  ml: 2,
+                  display: "flex",
+                  textAlign: "left",
+                  flexDirection: "column",
+                }}
+              >
+                <Typography variant="h5" component="div" mt={1}>
+                  {isEditing ? (
+                    <TextField
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      label="Name"
+                      fullWidth
+                    />
+                  ) : (
+                    userName
+                  )}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {isEditing ? (
+                    <TextField
+                      value={userEmail}
+                      onChange={(e) => setUserEmail(e.target.value)}
+                      label="Email"
+                      fullWidth
+                      type="email"
+                    />
+                  ) : (
+                    userEmail
+                  )}
+                </Typography>
+              </Box>
             </Box>
             <Divider sx={{ my: 2 }} />
             <Box sx={{ display: "flex", justifyContent: "center", gap: 2 }}>

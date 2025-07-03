@@ -45,11 +45,13 @@ const SharePage = () => {
       </div>
     );
   }
-
-  const { file, sharedAt, message } = fileData;
+  const { file, sharedAt, message, owner_id } = fileData;
   const fileExt = file.filename.split(".").pop().toLowerCase();
   const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(fileExt);
-  const previewUrl = isImage ? `/uploads/1/${file.filename}` : null;
+  const isVideo = ["mp4", "avi", "mov", "mkv"].includes(fileExt);
+  const isAudio = ["mp3", "wav", "ogg"].includes(fileExt);
+
+  const previewUrl = `/uploads/${owner_id}/${file.filename}`;
   console.log(previewUrl);
 
   return (
@@ -60,6 +62,26 @@ const SharePage = () => {
       </header>
 
       <div style={styles.card}>
+        {isVideo && (
+          <div style={styles.previewContainer}>
+            <video
+              src={previewUrl}
+              controls
+              style={styles.previewImage}
+              width={200}
+            />
+          </div>
+        )}
+        {isAudio && (
+          <div style={styles.previewContainer}>
+            <audio
+              src={previewUrl}
+              controls
+              style={styles.previewImage}
+              width={200}
+            />
+          </div>
+        )}
         {isImage ? (
           <div style={styles.previewContainer}>
             <img

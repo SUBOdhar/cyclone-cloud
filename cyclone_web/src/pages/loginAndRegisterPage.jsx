@@ -1,4 +1,5 @@
 import * as React from "react";
+import Cookies from "js-cookie";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
@@ -11,7 +12,6 @@ import { useNavigate } from "react-router-dom";
 import { CircularProgress, InputAdornment } from "@mui/material";
 import { useEffect } from "react";
 import { Email, Lock } from "@mui/icons-material";
-import { deleteCookie, getCookie, setCookie } from "../components/Cookies";
 
 const Card = styled(MuiCard)(({ theme }) => ({
   display: "flex",
@@ -84,7 +84,7 @@ export default function SignIn() {
   };
 
   useEffect(() => {
-    if (getCookie("loginstat") === "true") {
+    if (Cookies.get("loginstat") === "true") {
       navigate("/files");
     }
   }, [navigate]);
@@ -134,17 +134,18 @@ export default function SignIn() {
       const data = await response.json();
       if (response.ok) {
         // On successful login, the server sets a secure cookie.
-        setCookie("loginstat", "true", 7);
-        setCookie("userid", data.user.user_id, 7);
-        setCookie("username", data.user.user_name, 7);
-        setCookie("useremail", data.user.user_email, 7);
+        Cookies.set("loginstat", "true", 7);
+        Cookies.set("refreshToken", data.refreshToken);
+        Cookies.set("userid", data.user.user_id, 7);
+        Cookies.set("username", data.user.user_name, 7);
+        Cookies.set("useremail", data.user.user_email, 7);
         navigate("/files");
       } else {
         setLoginError(data.error || "Invalid email or password.");
-        deleteCookie("userid");
-        deleteCookie("username");
-        deleteCookie("useremail");
-        deleteCookie("loginstat");
+        Cookies.remove("userid");
+        Cookies.remove("username");
+        Cookies.remove("useremail");
+        Cookies.remove("loginstat");
       }
     } catch (error) {
       setLoginError("An error occurred during login.");

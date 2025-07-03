@@ -1,0 +1,2 @@
+C:/Users/aryal/source/codes/fireo/cyclone_app/android/app/.cxx/Debug/291h3i70/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/aryal/source/codes/fireo/cyclone_app/android/app/.cxx/Debug/291h3i70/armeabi-v7a/CMakeFiles/rebuild_cache.dir

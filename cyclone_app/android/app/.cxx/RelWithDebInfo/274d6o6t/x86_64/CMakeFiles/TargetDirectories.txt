@@ -1,0 +1,2 @@
+C:/Users/aryal/source/codes/fireo/cyclone_app/android/app/.cxx/RelWithDebInfo/274d6o6t/x86_64/CMakeFiles/edit_cache.dir
+C:/Users/aryal/source/codes/fireo/cyclone_app/android/app/.cxx/RelWithDebInfo/274d6o6t/x86_64/CMakeFiles/rebuild_cache.dir

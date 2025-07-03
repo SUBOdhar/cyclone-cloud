@@ -8,19 +8,18 @@ import SettingsPage from "./pages/SettingsPage";
 import SharePage from "./pages/SharedPhotoPage";
 import SignIn from "./pages/loginAndRegisterPage";
 import ProtectedRoutes from "./components/ProtectedRoutes";
-import NotFoundPage from "./pages/NotFoundPage"; // Import the NotFoundPage component
-import { getCookie } from "./components/Cookies";
+import NotFoundPage from "./pages/NotFoundPage";
+import Cookies from "js-cookie";
 
 const App = () => {
   const [theme, setTheme] = useState(
     () => localStorage.getItem("theme") || "Light"
   );
-  const location = useLocation(); // Get the current path
+  const location = useLocation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
-  const loginStat = getCookie("loginstat") == "true" ? true : false || false;
+  const loginStat = Cookies.get("loginstat") === "true";
   const toggleDrawer = () => {
-    const set = !isDrawerOpen; // More concise way to toggle the boolean
-    setIsDrawerOpen(set);
+    setIsDrawerOpen(!isDrawerOpen);
   };
   const [user, setUser] = useState({ username: "", useremail: "", userid: "" });
   useEffect(() => {
@@ -32,18 +31,42 @@ const App = () => {
     setTheme((prev) => (prev === "Dark" ? "Light" : "Dark"));
   };
 
-  // Define valid routes where the sidebar should be shown
-  const validPaths = ["/files", "/image", "/profile", "/settings"];
+  const validPaths = [
+    "/files/:folderPath?",
+    "/files",
+    "/image",
+    "/profile",
+    "/settings",
+  ];
+
+  const shouldShowSidebar = validPaths.some((path) => {
+    if (path.endsWith("?")) {
+      const basePath = path.slice(0, -2);
+      return location.pathname.startsWith(basePath);
+    }
+    return location.pathname === path;
+  });
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-900 dark:to-gray-800">
-      {/* Only show Sidebar if the current route is in the validPaths array */}
-      {validPaths.includes(location.pathname) && (
+      {shouldShowSidebar && (
         <Sidebar open={isDrawerOpen} toggleDrawer={toggleDrawer} />
       )}
       <main className="flex-1 overflow-auto p-4">
         <Routes>
           <Route path="/" element={<SignIn />} />
+          <Route
+            path="/files/:folderPath?"
+            element={
+              <ProtectedRoutes loginStatus={loginStat}>
+                <FilesUploadPage
+                  theme={theme}
+                  toggleTheme={toggleTheme}
+                  toggleDrawer={toggleDrawer}
+                />
+              </ProtectedRoutes>
+            }
+          />
           <Route
             path="/files"
             element={
@@ -93,8 +116,6 @@ const App = () => {
             }
           />
           <Route path="/shared/:token" element={<SharePage />} />
-
-          {/* Catch-all Route for undefined paths */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>

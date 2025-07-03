@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  cyclone-cloud:
+    image: subodh0011a/cyclonecloud:latest
+    container_name: cyclone-cloud
+    ports:
+      - "3001:3001"
+    volumes:
+      - cyclone-db:/app/database
+      - cyclone-uploads:/app/uploads
+    restart: always
+
+volumes:
+  cyclone-db:
+    name: cyclone-db
+  cyclone-uploads:
+    name: cyclone-uploads
